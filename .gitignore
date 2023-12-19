@@ -4,3 +4,4 @@
 # Ignore ESP-IDF SDK configuration files in all subfolders
 **/sdkconfig
 **/sdkconfig.old
+**/settings.json
