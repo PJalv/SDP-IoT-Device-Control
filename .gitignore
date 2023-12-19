@@ -1,0 +1,6 @@
+# Ignore build directories in all subfolders
+**/build/
+
+# Ignore ESP-IDF SDK configuration files in all subfolders
+**/sdkconfig
+**/sdkconfig.old
