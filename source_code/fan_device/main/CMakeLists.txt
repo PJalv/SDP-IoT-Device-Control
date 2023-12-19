@@ -2,8 +2,8 @@
 set(COMPONENT_REQUIRES )
 set(COMPONENT_PRIV_REQUIRES )
 
-set(COMPONENT_SRCS "main.c" "include/wifi.c")
-set(COMPONENT_ADD_INCLUDEDIRS "include")
+set(COMPONENT_SRCS "main.c" "../../utils/wifi.c")
+set(COMPONENT_ADD_INCLUDEDIRS "../../utils")
 
 
 
