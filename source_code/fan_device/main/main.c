@@ -1,9 +1,16 @@
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "include/wifi.c"
 
 void app_main(void)
 {
+    wifi_main();
+    while (!wifi_connected)
+    {
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+
     int i = 0;
     while (1)
     {
@@ -11,5 +18,4 @@ void app_main(void)
         i++;
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
-  
 }

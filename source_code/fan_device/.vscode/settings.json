@@ -8,6 +8,7 @@
     "files.associations": {
         "*.ejs": "html",
         "freertos.h": "c",
-        "task.h": "c"
+        "task.h": "c",
+        "sys.h": "c"
     }
 }
