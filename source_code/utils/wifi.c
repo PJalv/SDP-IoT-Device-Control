@@ -7,15 +7,14 @@
 #include "esp_event.h"         //for wifi event
 #include "nvs_flash.h"         //non volatile storage
 #include "lwip/err.h"          //light weight ip packets error handling
-#include "lwip/sys.h"          //system applications for light weight ip apps
+#include "lwip/sys.h"
+#include "../credentials.h" //system applications for light weight ip apps
 
-const char *ssid = "Frontier6544";
-const char *pass = "5025764819";
-int retry_num = 5;
+const char *ssid = WIFI_SSID;
+const char *pass = WIFI_PASSWORD;
 
-extern bool wifi_connected = false;
-
-
+extern bool isWifiConnected = false;
+char *wifiTag = "WiFi";
 static void wifi_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
     if (event_id == WIFI_EVENT_STA_START)
@@ -28,20 +27,19 @@ static void wifi_event_handler(void *event_handler_arg, esp_event_base_t event_b
     }
     else if (event_id == WIFI_EVENT_STA_DISCONNECTED)
     {
-        printf("WiFi lost connection\n");
-        if (retry_num < 5)
-        {
-            esp_wifi_connect();
-            retry_num++;
-            printf("Retrying to Connect...\n");
-        }
+        isWifiConnected = false;
+        ESP_LOGW(wifiTag, "WiFi is down!");
+        esp_wifi_connect();
+        ESP_LOGI(wifiTag, "Reconnecting...\n");
     }
     else if (event_id == IP_EVENT_STA_GOT_IP)
     {
-        printf("Wifi got IP...\n\n");
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-        printf("Got IP:" IPSTR, IP2STR(&event->ip_info.ip));
-        wifi_connected = true;
+        char ip_addr[16];
+        sprintf(ip_addr, IPSTR, IP2STR(&event->ip_info.ip));
+
+        ESP_LOGI("WiFi", "Got IP: %s", ip_addr);
+        isWifiConnected = true;
     }
 }
 
@@ -66,7 +64,6 @@ void wifi_connection()
     };
     strcpy((char *)wifi_configuration.sta.ssid, ssid);
     strcpy((char *)wifi_configuration.sta.password, pass);
-    // esp_log_write(ESP_LOG_INFO, "Kconfig", "SSID=%s, PASS=%s", ssid, pass);
     esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_configuration);
     // 3 - Wi-Fi Start Phase
     esp_wifi_start();
@@ -80,4 +77,12 @@ void wifi_main(void)
 {
     nvs_flash_init();
     wifi_connection();
+
+    // Add a loop to keep the task suspended after a successful connection
+    while (!isWifiConnected)
+    {
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+    }
+    printf("Task suspended\n");
+    vTaskSuspend(NULL); // Suspend the task after a successful connection
 }
