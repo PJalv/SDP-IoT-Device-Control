@@ -7,6 +7,8 @@
                 "${config:idf.espIdfPathWin}/components/**",
                 "${config:idf.espAdfPath}/components/**",
                 "${config:idf.espAdfPathWin}/components/**",
+                "${config:idf.espAdfPath}/examples/**",
+                "${config:idf.espAdfPathWin}/examples/**",
                 "${workspaceFolder}/**"
             ],
             "browse": {
@@ -15,6 +17,9 @@
                     "${config:idf.espIdfPathWin}/components",
                     "${config:idf.espAdfPath}/components/**",
                     "${config:idf.espAdfPathWin}/components/**",
+                    "${config:idf.espAdfPath}/examples/**",
+                    "${config:idf.espAdfPathWin}/examples/**",
+                    
                     "${workspaceFolder}"
                 ],
                 "limitSymbolsToIncludedHeaders": false

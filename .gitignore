@@ -6,5 +6,5 @@
 **/sdkconfig.old
 **/settings.json
 
-credentials.h
+**/credentials.h
 

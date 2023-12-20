@@ -9,6 +9,9 @@
         "*.ejs": "html",
         "freertos.h": "c",
         "task.h": "c",
-        "sys.h": "c"
+        "sys.h": "c",
+        "esp_log.h": "c",
+        "protocol_examples_common.h": "c",
+        "credentials.h": "c"
     }
 }
