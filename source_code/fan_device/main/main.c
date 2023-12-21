@@ -27,7 +27,7 @@ void mqttTask(void *arg)
     mqtt_app_start();
     while (1)
     {
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+        vTaskDelay(10000 / portTICK_PERIOD_MS);
     }
 }
 
