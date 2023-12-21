@@ -12,6 +12,12 @@
         "sys.h": "c",
         "esp_log.h": "c",
         "protocol_examples_common.h": "c",
-        "credentials.h": "c"
+        "credentials.h": "c",
+        "mqtt.h": "c",
+        "semphr.h": "c",
+        "array": "c",
+        "string": "c",
+        "string_view": "c",
+        "mqtt_client.h": "c"
     }
 }

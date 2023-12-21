@@ -2,8 +2,9 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "../../utils/wifi.c"
-#include "mqtt.c"
+#include "mqtt.h"
 
 TaskHandle_t wifiTaskHandle = NULL;
 TaskHandle_t task1Handle = NULL;
@@ -19,6 +20,8 @@ void wifiTask(void *arg)
     }
 }
 
+
+
 void mqttTask(void *arg)
 {
     mqtt_app_start();
@@ -30,24 +33,42 @@ void mqttTask(void *arg)
 
 void task1(void *arg)
 {
-    int i = 0;
+
+    int i = 800;
+    struct mqttData temp;
     while (1)
     {
-
-        // Normal task1 logic (including WiFi reconnection)
-        printf("[%d] Hello world!\n", i);
-        i++;
+        if (xSemaphoreTake(dataSemaphore, portTICK_PERIOD_MS) == pdTRUE)
+        {
+            temp = pop();
+            if (temp.data != i)
+            {
+                i = temp.data;
+                printf("FAN RPM CHANGED: NEW RPM = %d \n", i);
+            }
+        }
+        printf("Fan RPM: %d \n", i);
         vTaskDelay(1000 / portTICK_PERIOD_MS); // Some delay between iterations
     }
 }
 
 void app_main(void)
 {
+    topicArray myStrings = {
+        .topics = {
+            "fan/status/rpm",
+            "fan/status/temp",
+            "fan/status/duty_cycle"},
+        .numStrings = 3 // Update this with the actual number of strings
+    };
+
+    sendStringArray(&myStrings);
     xTaskCreate(wifiTask, "wifi", 4096, NULL, 10, &wifiTaskHandle);
-    // xTaskCreate(task1, "task1", 4096, NULL, 10, &task1Handle);;
-    vTaskDelay(10000 / portTICK_PERIOD_MS);
+    vTaskDelay(3000 / portTICK_PERIOD_MS);
     xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
-    printf("Waiting for 10 secs to publish...");
     vTaskDelay(10000 / portTICK_PERIOD_MS);
-    publish_state("Hello from MQTT!");
+    xTaskCreate(task1, "task1", 4096, NULL, 10, &task1Handle);
+    // printf("Waiting for 10 secs...");
+    // vTaskDelay(10000 / portTICK_PERIOD_MS);
+    // // publish_state("test/status", "Hello from MQTT!");
 }

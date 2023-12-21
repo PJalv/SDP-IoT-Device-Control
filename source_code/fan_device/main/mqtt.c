@@ -1,16 +1,67 @@
-#include "mqtt_client.h"              //provides important functions to connect with MQTT
-#include "protocol_examples_common.h" //important for running different protocols in code
-#include "esp_event.h"                //managing events of mqtt
-#include "nvs_flash.h"                //storing mqtt and wifi configs and settings
-#include "freertos/FreeRTOS.h"        //it is important too if you want to run mqtt task independently and provides threads funtionality
-#include "freertos/task.h"            //MQTT communication often involves asynchronous operations, and FreeRTOS helps handle those tasks effectively
-#include "esp_log.h"                  //log out put, do not use printf everywhere
+#include "mqtt.h"
+#include "esp_log.h"
 #include "../../credentials.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+#include "freertos/task.h"
+#include "esp_event.h"
 #include "mqtt_client.h"
+#include <math.h>
 
+bool hasConnected = false;
+static const char *TAG = "MQTT";
+struct mqttData temp = {
+    .topic = "",
+    .data = 0};
 
+SemaphoreHandle_t dataSemaphore = NULL;
 
-char *TAG = "MQTT";
+struct mqttData transfer[MAX_SIZE];
+int transfer_size = 0;
+
+topicArray rxTopics;
+
+void sendStringArray(topicArray *array)
+{
+    printf("Received String Array with %d strings...\n", array->numStrings);
+    for (int i = 0; i < array->numStrings; ++i)
+    {
+        printf("%s\n", array->topics[i]);
+    }
+    rxTopics = *array;
+}
+
+void push(struct mqttData value)
+{
+
+    if (transfer_size < MAX_SIZE)
+    {
+        transfer[transfer_size++] = value;
+        ESP_LOGI(TAG, "Pushed to the array.");
+    }
+    else
+    {
+        ESP_LOGI(TAG, "Array is full, cannot push.");
+    }
+}
+
+struct mqttData pop()
+{
+    struct mqttData defaultValue = {NULL, 0};
+    if (transfer_size > 0)
+    {
+        ESP_LOGI(TAG, "Popped from the array.");
+        return transfer[--transfer_size];
+    }
+    else
+    {
+        ESP_LOGI(TAG, "Array is empty, cannot pop.");
+        return defaultValue;
+    }
+}
 static void log_error_if_nonzero(const char *message, int error_code)
 {
     if (error_code != 0)
@@ -19,7 +70,7 @@ static void log_error_if_nonzero(const char *message, int error_code)
     }
 }
 esp_mqtt_client_handle_t mqtt_client = NULL;
-static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
+void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
     ESP_LOGD(TAG, "Event dispatched from event loop base=%s, event_id=%" PRIi32 "", base, event_id);
     esp_mqtt_event_handle_t event = event_data;
@@ -29,12 +80,16 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
+        for (int i = 0; i < rxTopics.numStrings; i++)
+        {
+            topic_subscribe(rxTopics.topics[i]);
+        }
         break;
     case MQTT_EVENT_DISCONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
         break;
-
     case MQTT_EVENT_SUBSCRIBED:
+        ESP_LOGI(TAG, "SUBSCRIBED TO TOPIC");
         break;
     case MQTT_EVENT_UNSUBSCRIBED:
         ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
@@ -43,9 +98,28 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
         break;
     case MQTT_EVENT_DATA:
-        ESP_LOGI(TAG, "MQTT_EVENT_DATA");
         printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
         printf("DATA=%.*s\r\n", event->data_len, event->data);
+        printf(" , data length: %d\n", event->data_len);
+
+        char *result = malloc(((event->data_len) + 1) * sizeof(char));
+
+        if (result == NULL)
+        {
+            fprintf(stderr, "Memory allocation failed\n");
+        }
+        strncpy(result, event->data, event->data_len);
+        result[event->data_len] = '\0';
+
+        temp.data = atoi(result);
+        temp.topic = event->topic;
+        printf("TEMP DATA = %d\n", temp.data);
+        push(temp);
+        printf("\nPushed %d into the transfer array.\n", transfer[0].data);
+
+        ESP_LOGI(TAG, "MQTT_EVENT_DATA");
+        free(result);
+        xSemaphoreGive(dataSemaphore);
         break;
     case MQTT_EVENT_ERROR:
         ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
@@ -62,7 +136,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         break;
     }
 }
-static void mqtt_app_start(void)
+void mqtt_app_start(void)
 {
     esp_mqtt_client_config_t mqtt_cfg = {
         .broker.address.uri = BROKER_URI,
@@ -71,15 +145,53 @@ static void mqtt_app_start(void)
     /* The last argument may be used to pass data to the event handler, in this example mqtt_event_handler */
     esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
     esp_mqtt_client_start(client);
+    dataSemaphore = xSemaphoreCreateBinary();
+
+    if (dataSemaphore == NULL)
+    {
+        /* There was insufficient FreeRTOS heap available for the semaphore to
+        be created successfully. */
+    }
+    else
+    {
+        printf("Semaphore Active!");
+    }
     vTaskSuspend(NULL);
 }
-void publish_state(char *data)
+void publish_state(char *topic, char *data)
 {
     char *txData = data;
+    char *txTopic = topic;
     if (mqtt_client != NULL)
     {
         // Publish message using the stored client handle
-        esp_mqtt_client_publish(mqtt_client, "test/status", txData, 0, 1, 0);
+        esp_mqtt_client_publish(mqtt_client, txTopic, txData, 0, 1, 0);
+    }
+    else
+    {
+        ESP_LOGE(TAG, "MQTT Client Handle is NULL");
+    }
+}
+
+void topic_subscribe(char *topic)
+{
+    // char *txData = data;
+    char *txTopic = topic;
+    if (mqtt_client != NULL)
+    {
+        while (1)
+        {
+            if (esp_mqtt_client_subscribe_single(mqtt_client, txTopic, 1) < 0)
+            {
+                printf("COULD NOT SUBSCRIBE, RECONNECTING...");
+                vTaskDelay(2000 / portTICK_PERIOD_MS);
+            }
+            else
+            {
+
+                break;
+            }
+        }
     }
     else
     {
