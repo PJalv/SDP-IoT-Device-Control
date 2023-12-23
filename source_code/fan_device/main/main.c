@@ -17,6 +17,17 @@ static void IRAM_ATTR intr_handler(void *arg)
     counter++;
 }
 
+void countTask()
+{
+    while (1)
+    {
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        printf("Current RPM = %d\n...", counter * 30);
+        counter = 0;
+    }
+    vTaskDelete(NULL);
+}
+
 void wifiTask(void *arg)
 {
 
@@ -86,7 +97,8 @@ void app_main(void)
         .gpio_num = 16,
         .speed_mode = LEDC_LOW_SPEED_MODE,
         .channel = LEDC_CHANNEL_0,
-        .duty = 255,
+        .timer_sel = LEDC_TIMER_0,
+        .duty = 600,
         .hpoint = 0};
 
     gpio_set_level(19, 1);
