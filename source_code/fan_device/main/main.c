@@ -11,6 +11,7 @@
 TaskHandle_t wifiTaskHandle = NULL;
 TaskHandle_t task1Handle = NULL;
 TaskHandle_t mqttTaskHandle = NULL;
+TaskHandle_t countTaskHandle = NULL;
 int counter = 0;
 static void IRAM_ATTR intr_handler(void *arg)
 {
@@ -107,7 +108,7 @@ void app_main(void)
 
     // vTaskDelay(5000 / portTICK_PERIOD_MS);
     // gpio_set_level(19, 0);
-
+    xTaskCreate(countTask, "countTask", 4096, NULL, 10, &countTaskHandle);
     // xTaskCreate(wifiTask, "wifi", 4096, NULL, 10, &wifiTaskHandle);
     // vTaskDelay(3000 / portTICK_PERIOD_MS);
     // xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
