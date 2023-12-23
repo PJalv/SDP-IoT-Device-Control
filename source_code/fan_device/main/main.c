@@ -93,8 +93,8 @@ void app_main(void)
 
     ledc_channel_config(&channel);
 
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
-    gpio_set_level(19, 0);
+    // vTaskDelay(5000 / portTICK_PERIOD_MS);
+    // gpio_set_level(19, 0);
 
     // xTaskCreate(wifiTask, "wifi", 4096, NULL, 10, &wifiTaskHandle);
     // vTaskDelay(3000 / portTICK_PERIOD_MS);
