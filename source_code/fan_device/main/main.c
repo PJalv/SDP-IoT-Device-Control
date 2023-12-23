@@ -50,21 +50,36 @@ void mqttTask(void *arg)
 
 void task1(void *arg)
 {
+    int i;
+    ledc_timer_config_t timer = {
+        .speed_mode = LEDC_HIGH_SPEED_MODE,
+        .duty_resolution = LEDC_TIMER_10_BIT,
+        .timer_num = LEDC_TIMER_0,
+        .freq_hz = 25000,
+        .clk_cfg = LEDC_AUTO_CLK};
+    ledc_timer_config(&timer);
+    ledc_channel_config_t channel = {
+        .gpio_num = 16,
+        .speed_mode = LEDC_HIGH_SPEED_MODE,
+        .channel = LEDC_CHANNEL_0,
+        .timer_sel = LEDC_TIMER_0,
+        .duty = 32,
+        .hpoint = 0};
 
-    int i = 800;
+    gpio_set_level(19, 1);
+
+    ledc_channel_config(&channel);
     struct mqttData temp;
     while (1)
     {
         if (xSemaphoreTake(dataSemaphore, portTICK_PERIOD_MS) == pdTRUE)
         {
             temp = pop();
-            if (temp.data != i)
-            {
-                i = temp.data;
-                printf("FAN RPM CHANGED: NEW RPM = %d \n", i);
-            }
+            i = temp.data;
+            channel.duty = i;
+            ledc_channel_config(&channel);
+            printf("FAN DUTY CYCLE CHANGED: NEW D/C = %d \n", i);
         }
-        printf("Fan RPM: %d \n", i);
         vTaskDelay(1000 / portTICK_PERIOD_MS); // Some delay between iterations
     }
 }
@@ -74,10 +89,8 @@ void app_main(void)
 
     topicArray myStrings = {
         .topics = {
-            "fan/status/rpm",
-            "fan/status/temp",
             "fan/status/duty_cycle"},
-        .numStrings = 3 // Update this with the actual number of strings
+        .numStrings = 1 // Update this with the actual number of strings
     };
     sendStringArray(&myStrings);
 
@@ -87,33 +100,15 @@ void app_main(void)
     gpio_set_direction(19, GPIO_MODE_OUTPUT);
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
-    ledc_timer_config_t timer = {
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        .duty_resolution = LEDC_TIMER_10_BIT,
-        .timer_num = LEDC_TIMER_0,
-        .freq_hz = 25000,
-        .clk_cfg = LEDC_AUTO_CLK};
-    ledc_timer_config(&timer);
-    ledc_channel_config_t channel = {
-        .gpio_num = 16,
-        .speed_mode = LEDC_LOW_SPEED_MODE,
-        .channel = LEDC_CHANNEL_0,
-        .timer_sel = LEDC_TIMER_0,
-        .duty = 600,
-        .hpoint = 0};
-
-    gpio_set_level(19, 1);
-
-    ledc_channel_config(&channel);
 
     // vTaskDelay(5000 / portTICK_PERIOD_MS);
     // gpio_set_level(19, 0);
     xTaskCreate(countTask, "countTask", 4096, NULL, 10, &countTaskHandle);
-    // xTaskCreate(wifiTask, "wifi", 4096, NULL, 10, &wifiTaskHandle);
-    // vTaskDelay(3000 / portTICK_PERIOD_MS);
-    // xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
-    // vTaskDelay(10000 / portTICK_PERIOD_MS);
-    // xTaskCreate(task1, "task1", 4096, NULL, 10, &task1Handle);
+    xTaskCreate(wifiTask, "wifi", 4096, NULL, 10, &wifiTaskHandle);
+    vTaskDelay(3000 / portTICK_PERIOD_MS);
+    xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
+    vTaskDelay(10000 / portTICK_PERIOD_MS);
+    xTaskCreate(task1, "task1", 4096, NULL, 10, &task1Handle);
     // printf("Waiting for 10 secs...");
     // vTaskDelay(10000 / portTICK_PERIOD_MS);
     // // publish_state("test/status", "Hello from MQTT!");
