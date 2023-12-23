@@ -9,7 +9,7 @@
 #include "freertos/task.h"
 #include "esp_event.h"
 #include "mqtt_client.h"
-#include <math.h>
+
 
 bool hasConnected = false;
 static const char *TAG = "MQTT";
