@@ -74,10 +74,21 @@ void task1(void *arg)
     {
         if (xSemaphoreTake(dataSemaphore, portTICK_PERIOD_MS) == pdTRUE)
         {
+
             temp = pop();
             i = temp.data;
             channel.duty = i;
-            ledc_channel_config(&channel);
+            switch (i)
+            {
+            case 0:
+                gpio_set_level(19, 0);
+                break;
+            case 1:
+                gpio_set_level(19, 1);
+                break;
+            default:
+                ledc_channel_config(&channel);
+            }
             printf("FAN DUTY CYCLE CHANGED: NEW D/C = %d \n", i);
         }
         vTaskDelay(1000 / portTICK_PERIOD_MS); // Some delay between iterations
