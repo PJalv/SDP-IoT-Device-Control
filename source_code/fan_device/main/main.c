@@ -21,12 +21,13 @@ void init()
 {
 
     nvs_flash_init();
-    topicArray myStrings = {
+    topicArray subscribeTopics = {
         .topics = {
             "fan/status/duty_cycle"},
         .numStrings = 1 // Update this with the actual number of strings (topics)
     };
-    sendStringArray(&myStrings);
+
+    sendStringArray(&subscribeTopics);
 
     gpio_set_intr_type(15, GPIO_INTR_POSEDGE);
     gpio_install_isr_service(0);
@@ -67,6 +68,7 @@ void mqttTask(void *arg)
 void task1(void *arg)
 {
     int i;
+    char *fanState = 'OFF';
     ledc_timer_config_t timer = {
         .speed_mode = LEDC_HIGH_SPEED_MODE,
         .duty_resolution = LEDC_TIMER_10_BIT,
@@ -84,6 +86,7 @@ void task1(void *arg)
 
     ledc_channel_config(&channel);
     gpio_set_level(19, 0); // this should be the first time the relay triggers fan to turn on/off
+    fanState = 'ON';
 
     struct mqttData temp;
     while (1)
@@ -93,20 +96,24 @@ void task1(void *arg)
 
             temp = pop();
             i = temp.data;
-            channel.duty = i;
-            switch (i)
+            switch (channel.duty)
             {
             case 0:
                 gpio_set_level(19, 0);
+                fanState = "ON";
                 break;
             case 1:
                 gpio_set_level(19, 1);
+                fanState = "OFF";
+
                 break;
             default:
                 ledc_channel_config(&channel);
+                channel.duty = i;
             }
             printf("FAN DUTY CYCLE CHANGED: NEW D/C = %d \n", i);
         }
+        publish_state("fan/status/power", fanState );
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }

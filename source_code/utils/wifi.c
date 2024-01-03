@@ -79,7 +79,7 @@ void wifi_connection()
 
 void wifi_main(void)
 {
-    nvs_flash_init();
+    // nvs_flash_init();
     wifi_connection();
 
     // Add a loop to keep the task suspended after a successful connection

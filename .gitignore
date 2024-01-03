@@ -5,6 +5,7 @@
 **/sdkconfig
 **/sdkconfig.old
 **/settings.json
+**/c_cpp_properties.json
 
 **/credentials.h
 
