@@ -86,7 +86,8 @@ void task1(void *arg)
 
     ledc_channel_config(&channel);
     gpio_set_level(19, 0); // this should be the first time the relay triggers fan to turn on/off
-    fanState = 'ON';
+    fanState = "ON";
+    publish_state("fan/status/power", fanState);
 
     struct mqttData temp;
     while (1)
@@ -96,24 +97,26 @@ void task1(void *arg)
 
             temp = pop();
             i = temp.data;
-            switch (channel.duty)
+            switch (i)
             {
             case 0:
                 gpio_set_level(19, 0);
                 fanState = "ON";
+                publish_state("fan/status/power", fanState);
+
                 break;
             case 1:
                 gpio_set_level(19, 1);
                 fanState = "OFF";
+                publish_state("fan/status/power", fanState);
 
                 break;
             default:
-                ledc_channel_config(&channel);
                 channel.duty = i;
+                ledc_channel_config(&channel);
+                printf("FAN DUTY CYCLE CHANGED: NEW D/C = %d \n", i);
             }
-            printf("FAN DUTY CYCLE CHANGED: NEW D/C = %d \n", i);
         }
-        publish_state("fan/status/power", fanState );
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
@@ -123,7 +126,7 @@ void app_main(void)
     init();
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     xTaskCreate(wifiTask, "wifi", 4096, NULL, 10, &wifiTaskHandle);
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
     xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
     xTaskCreate(task1, "task1", 4096, NULL, 10, &task1Handle);
     xTaskCreate(countTask, "countTask", 4096, NULL, 10, &countTaskHandle);
