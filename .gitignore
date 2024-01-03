@@ -6,6 +6,7 @@
 **/sdkconfig.old
 **/settings.json
 **/c_cpp_properties.json
+**/dependencies.lock
 
 **/credentials.h
 
