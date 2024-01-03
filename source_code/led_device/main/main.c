@@ -1,74 +1,74 @@
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "led_strip.h"
 #include "esp_log.h"
 #include "esp_err.h"
 #include "../../../utils/mqtt.h"
 #include "../../../utils/wifi.c"
-
-
-#define LED_STRIP_BLINK_GPIO 15
-
-#define LED_STRIP_LED_NUMBERS 60
-// 10MHz resolution, 1 tick = 0.1us (led strip needs a high resolution)
-#define LED_STRIP_RMT_RES_HZ (10 * 1000 * 1000)
+#include "led_config.c"
+#include "driver/gpio.h"
 
 static const char *TAG = "example";
 
-led_strip_handle_t configure_led(void)
-{
-    led_strip_config_t strip_config = {
-        .strip_gpio_num = LED_STRIP_BLINK_GPIO,   // The GPIO that connected to the LED strip's data line
-        .max_leds = LED_STRIP_LED_NUMBERS,        // The number of LEDs in the strip,
-        .led_pixel_format = LED_PIXEL_FORMAT_GRB, // Pixel format of your LED strip
-        .led_model = LED_MODEL_WS2812,            // LED strip model
-        .flags.invert_out = false,                // whether to invert the output signal
-    };
-    led_strip_rmt_config_t rmt_config = {
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
-        .rmt_channel = 0,
-#else
-        .clk_src = RMT_CLK_SRC_DEFAULT,        // different clock source can lead to different power consumption
-        .resolution_hz = LED_STRIP_RMT_RES_HZ, // RMT counter clock frequency
-        .flags.with_dma = false,               // DMA feature is available on ESP target like ESP32-S3
-#endif
-    };
+TaskHandle_t task1Handle = NULL;
 
-    // LED Strip object handle
-    led_strip_handle_t led_strip;
-    ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip));
-    ESP_LOGI(TAG, "Created LED strip object with RMT backend");
-    return led_strip;
+void init()
+{
+    nvs_flash_init();
+
+    topicArray subscribeTopics = {
+        .topics = {
+            "led/status/power"},
+        .numStrings = 1};
+    sendStringArray(&subscribeTopics);
+}
+
+void task1(void *arg)
+{
+    int i;
+    led_strip_handle_t led_strip = configure_led();
+    bool isLedOn = false;
+
+    for (int i = 0; i < LED_STRIP_LED_NUMBERS; i++)
+    {
+        ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, 28, 75, 169));
+    }
+    /* Refresh the strip to send data */
+    ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+
+    ESP_LOGI(TAG, "Start blinking LED strip");
+    struct mqttData temp;
+    while (1)
+    {
+        if (xSemaphoreTake(dataSemaphore, portTICK_PERIOD_MS) == pdTRUE)
+        {
+            temp = pop();
+            i = temp.data;
+            switch (i)
+            {
+            case 0:
+                led_strip_clear(led_strip);
+                break;
+            case 1:
+                for (int i = 0; i < LED_STRIP_LED_NUMBERS; i++)
+                {
+                    ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, 28, 75, 169));
+                }
+                ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+            default:
+                printf("not valid parameter at the moment\n");
+                break;
+            }
+        }
+
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
 }
 
 void app_main(void)
 {
-    led_strip_handle_t led_strip = configure_led();
-    bool led_on_off = false;
-
-    ESP_LOGI(TAG, "Start blinking LED strip");
-    while (1)
-    {
-        if (led_on_off)
-        {
-            /* Set the LED pixel using RGB from 0 (0%) to 255 (100%) for each color */
-            for (int i = 0; i < LED_STRIP_LED_NUMBERS; i++)
-            {
-                ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, 28, 75, 169));
-            }
-            /* Refresh the strip to send data */
-            ESP_ERROR_CHECK(led_strip_refresh(led_strip));
-            ESP_LOGI(TAG, "LED ON!");
-        }
-        else
-        {
-            /* Set all LED off to clear all pixels */
-            ESP_ERROR_CHECK(led_strip_clear(led_strip));
-            ESP_LOGI(TAG, "LED OFF!");
-        }
-
-        led_on_off = !led_on_off;
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
+    init();
+    xTaskCreate(task1, "task1", 4096, NULL, 10, &task1Handle);
 }
