@@ -86,21 +86,29 @@ struct mqttData pop()
 
 void mqtt_message_handler(esp_mqtt_event_handle_t event)
 {
+    printf("Received MQTT message: %s\r\n", event->data);
 
     // Check for JSON payload
     if (strncmp(event->data, "JSON:", 5) == 0)
     {
+        printf("JSON payload detected\r\n");
         // This is a JSON payload
         const char *json_data = event->data + 5; // Skip the "JSON:" marker
+        printf("JSON data: %s\r\n", json_data);
+
         temp.topic = event->topic;
         temp.jsonPayload.isJson = 1;
         temp.jsonPayload.jsonData = json_data;
+
+        printf("Pushing JSON payload to processing\r\n");
         push(temp);
     }
     else if (strncmp(event->data, "INT:", 4) == 0) // Check for Integer payload
     {
+        printf("Integer payload detected\r\n");
         // This is an Integer payload
         const char *int_data = event->data + 4; // Skip the "INT:" marker
+        printf("Integer data: %s\r\n", int_data);
 
         // Allocate memory for the string representation of the integer payload
         char *result = malloc(((event->data_len - 4) + 1) * sizeof(char)); // Subtract 4 for the "INT:" marker
@@ -123,12 +131,18 @@ void mqtt_message_handler(esp_mqtt_event_handle_t event)
         temp.topic = event->topic;
         temp.integerPayload.isInteger = 1;
         temp.integerPayload.intData = int_value;
+
+        printf("Pushing integer payload to processing\r\n");
         push(temp);
+
         free(result); // Free allocated memory when done using it
     }
+
+    printf("Resetting MQTT data\r\n");
     resetMqttData(&temp);
     xSemaphoreGive(dataSemaphore);
 }
+
 
 static void log_error_if_nonzero(const char *message, int error_code)
 {

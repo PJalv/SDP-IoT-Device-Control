@@ -69,7 +69,6 @@ void init()
         gpio_set_level(19, 1);
     }
     setFanInfo(i_fanState, dutyCycle);
-    publish_state("fan/status/power", fanState);
     topicArray subscribeTopics = {
         .topics = {
             "fan/status/duty_cycle"},
@@ -122,7 +121,7 @@ void arrayProcess(void *arg)
     {
         if (xSemaphoreTake(dataSemaphore, portTICK_PERIOD_MS) == pdTRUE)
         {
-
+            printf("IN MAIN FUNCTION FOR POPPING.\n");
             temp = pop();
             if (temp.integerPayload.isInteger == 1)
             {
