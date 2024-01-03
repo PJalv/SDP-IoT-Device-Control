@@ -129,8 +129,9 @@ void task1(void *arg)
                 break;
             default:
                 channel.duty = i;
+                dutyCycle = channel.duty;
                 ledc_channel_config(&channel);
-                printf("FAN DUTY CYCLE CHANGED: NEW D/C = %d \n", i);
+                printf("FAN DUTY CYCLE CHANGED: NEW D/C = %d \n", dutyCycle);
                 setFanInfo(i_fanState, dutyCycle);
             }
         }
