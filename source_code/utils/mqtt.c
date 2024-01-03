@@ -120,15 +120,14 @@ void mqtt_message_handler(esp_mqtt_event_handle_t event)
         printf("Received integer value: %d\r\n", int_value);
         // Process int_value as an integer payload
 
-        free(result); // Free allocated memory when done using it
         temp.topic = event->topic;
         temp.integerPayload.isInteger = 1;
         temp.integerPayload.intData = int_value;
         push(temp);
+        free(result); // Free allocated memory when done using it
     }
     resetMqttData(&temp);
     xSemaphoreGive(dataSemaphore);
-
 }
 
 static void log_error_if_nonzero(const char *message, int error_code)
