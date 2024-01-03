@@ -33,7 +33,7 @@ void setFanInfo(int power, int dutyCycle)
     }
     else
     {
-        printf("Sucess setting values!\n");
+        printf("Success setting values!\n");
     }
 
     // Commit changes to NVS
@@ -62,8 +62,8 @@ void getFanInfo(int *power, int *dutyCycle)
         return;
     }
 
-    err = nvs_get_i32(my_handle, POWER_KEY, &power);
-    err |= nvs_get_i32(my_handle, RPM_KEY, &dutyCycle);
+    err = nvs_get_i32(my_handle, POWER_KEY, power);
+    err |= nvs_get_i32(my_handle, RPM_KEY, dutyCycle);
 
     if (err != ESP_OK)
     {
