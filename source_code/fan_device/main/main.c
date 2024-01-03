@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "esp_log.h"
+#include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -8,6 +9,7 @@
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "nvs_flash.h"
+#include "storage_nvs.h"
 
 TaskHandle_t task1Handle = NULL;
 TaskHandle_t countTaskHandle = NULL;
@@ -67,8 +69,9 @@ void mqttTask(void *arg)
 
 void task1(void *arg)
 {
-    int i;
-    char *fanState = 'OFF';
+    int i, i_fanState = 0;
+    char *fanState = "OFF";
+    int dutyCycle = 32;
     ledc_timer_config_t timer = {
         .speed_mode = LEDC_HIGH_SPEED_MODE,
         .duty_resolution = LEDC_TIMER_10_BIT,
@@ -76,17 +79,27 @@ void task1(void *arg)
         .freq_hz = 25000,
         .clk_cfg = LEDC_AUTO_CLK};
     ledc_timer_config(&timer);
+    getFanInfo(&i_fanState, &dutyCycle);
+
     ledc_channel_config_t channel = {
         .gpio_num = 16,
         .speed_mode = LEDC_HIGH_SPEED_MODE,
         .channel = LEDC_CHANNEL_0,
         .timer_sel = LEDC_TIMER_0,
-        .duty = 32,
+        .duty = dutyCycle,
         .hpoint = 0};
 
     ledc_channel_config(&channel);
-    gpio_set_level(19, 0); // this should be the first time the relay triggers fan to turn on/off
-    fanState = "ON";
+    // this should be the first time the relay triggers fan to turn on/off
+    if (i_fanState == 0)
+    {
+        gpio_set_level(19, 0);
+    }
+    else
+    {
+        gpio_set_level(19, 1);
+    }
+    setFanInfo(i_fanState, dutyCycle);
     publish_state("fan/status/power", fanState);
 
     struct mqttData temp;
@@ -102,19 +115,23 @@ void task1(void *arg)
             case 0:
                 gpio_set_level(19, 0);
                 fanState = "ON";
+                i_fanState = 0;
+                setFanInfo(0, dutyCycle);
                 publish_state("fan/status/power", fanState);
 
                 break;
             case 1:
                 gpio_set_level(19, 1);
                 fanState = "OFF";
+                i_fanState = 1;
                 publish_state("fan/status/power", fanState);
-
+                setFanInfo(1, dutyCycle);
                 break;
             default:
                 channel.duty = i;
                 ledc_channel_config(&channel);
                 printf("FAN DUTY CYCLE CHANGED: NEW D/C = %d \n", i);
+                setFanInfo(i_fanState, dutyCycle);
             }
         }
         vTaskDelay(1000 / portTICK_PERIOD_MS);
