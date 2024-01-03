@@ -13,6 +13,16 @@
 
 TaskHandle_t task1Handle = NULL;
 TaskHandle_t countTaskHandle = NULL;
+int i, i_fanState = 0;
+char *fanState = "OFF";
+int dutyCycle = 32;
+ledc_timer_config_t timer = {
+    .speed_mode = LEDC_HIGH_SPEED_MODE,
+    .duty_resolution = LEDC_TIMER_10_BIT,
+    .timer_num = LEDC_TIMER_0,
+    .freq_hz = 25000,
+    .clk_cfg = LEDC_AUTO_CLK};
+
 int counter = 0;
 static void IRAM_ATTR intr_handler(void *arg)
 {
@@ -23,6 +33,17 @@ void init()
 {
 
     nvs_flash_init();
+    ledc_timer_config(&timer);
+    getFanInfo(&i_fanState, &dutyCycle);
+    ledc_channel_config_t channel = {
+        .gpio_num = 16,
+        .speed_mode = LEDC_HIGH_SPEED_MODE,
+        .channel = LEDC_CHANNEL_0,
+        .timer_sel = LEDC_TIMER_0,
+        .duty = dutyCycle,
+        .hpoint = 0};
+    ledc_channel_config(&channel);
+
     topicArray subscribeTopics = {
         .topics = {
             "fan/status/duty_cycle"},
@@ -69,18 +90,6 @@ void mqttTask(void *arg)
 
 void task1(void *arg)
 {
-    int i, i_fanState = 0;
-    char *fanState = "OFF";
-    int dutyCycle = 32;
-    ledc_timer_config_t timer = {
-        .speed_mode = LEDC_HIGH_SPEED_MODE,
-        .duty_resolution = LEDC_TIMER_10_BIT,
-        .timer_num = LEDC_TIMER_0,
-        .freq_hz = 25000,
-        .clk_cfg = LEDC_AUTO_CLK};
-    ledc_timer_config(&timer);
-    getFanInfo(&i_fanState, &dutyCycle);
-
     ledc_channel_config_t channel = {
         .gpio_num = 16,
         .speed_mode = LEDC_HIGH_SPEED_MODE,
@@ -88,7 +97,6 @@ void task1(void *arg)
         .timer_sel = LEDC_TIMER_0,
         .duty = dutyCycle,
         .hpoint = 0};
-
     ledc_channel_config(&channel);
     // this should be the first time the relay triggers fan to turn on/off
     if (i_fanState == 0)
