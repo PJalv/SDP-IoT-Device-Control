@@ -5,6 +5,7 @@
         "board/esp32-bridge.cfg"
     ],
     "idf.flashType": "UART",
+    
     "files.associations": {
         "*.ejs": "html",
         "freertos.h": "c",

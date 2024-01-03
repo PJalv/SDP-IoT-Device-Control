@@ -3,13 +3,15 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "freertos/task.h"
 #include "esp_event.h"
 #include "mqtt_client.h"
 
 #define MAX_SIZE 1
 #define MAX_STRINGS 10
-extern SemaphoreHandle_t dataSemaphore;
 
+extern SemaphoreHandle_t dataSemaphore;
+extern TaskHandle_t mqttTaskHandle;
 struct mqttData
 {
     char *topic;

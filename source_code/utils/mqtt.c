@@ -1,6 +1,6 @@
 #include "mqtt.h"
 #include "esp_log.h"
-#include "../../credentials.h"
+#include "../credentials.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,7 +10,6 @@
 #include "esp_event.h"
 #include "mqtt_client.h"
 
-
 bool hasConnected = false;
 static const char *TAG = "MQTT";
 struct mqttData temp = {
@@ -18,11 +17,11 @@ struct mqttData temp = {
     .data = 0};
 
 SemaphoreHandle_t dataSemaphore = NULL;
-
+TaskHandle_t mqttTaskHandle = NULL;
 struct mqttData transfer[MAX_SIZE];
 int transfer_size = 0;
 
-topicArray rxTopics;
+topicArray subscribeTopics;
 
 void sendStringArray(topicArray *array)
 {
@@ -31,7 +30,7 @@ void sendStringArray(topicArray *array)
     {
         printf("%s\n", array->topics[i]);
     }
-    rxTopics = *array;
+    subscribeTopics = *array;
 }
 
 void push(struct mqttData value)
@@ -80,9 +79,9 @@ void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event
     {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-        for (int i = 0; i < rxTopics.numStrings; i++)
+        for (int i = 0; i < subscribeTopics.numStrings; i++)
         {
-            topic_subscribe(rxTopics.topics[i]);
+            topic_subscribe(subscribeTopics.topics[i]);
         }
         break;
     case MQTT_EVENT_DISCONNECTED:
