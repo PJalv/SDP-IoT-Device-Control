@@ -7,7 +7,7 @@
 #include "../../utils/mqtt.h"
 #include "driver/gpio.h"
 #include "driver/ledc.h"
-
+#include "nvs_flash.h"
 
 TaskHandle_t task1Handle = NULL;
 TaskHandle_t countTaskHandle = NULL;
@@ -19,6 +19,8 @@ static void IRAM_ATTR intr_handler(void *arg)
 
 void init()
 {
+
+    nvs_flash_init();
     topicArray myStrings = {
         .topics = {
             "fan/status/duty_cycle"},
