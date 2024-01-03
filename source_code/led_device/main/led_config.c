@@ -1,11 +1,11 @@
 #include "led_strip.h"
-
+#include "esp_log.h"
 #define LED_STRIP_BLINK_GPIO 15
 
 #define LED_STRIP_LED_NUMBERS 60
 // 10MHz resolution, 1 tick = 0.1us (led strip needs a high resolution)
 #define LED_STRIP_RMT_RES_HZ (10 * 1000 * 1000)
-static const char *TAG = "LED-CONFIG";
+extern const char *TAG = "LED-CONFIG";
 led_strip_handle_t configure_led(void)
 {
     led_strip_config_t strip_config = {

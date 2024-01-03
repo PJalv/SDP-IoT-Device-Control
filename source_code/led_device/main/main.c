@@ -10,7 +10,7 @@
 #include "led_config.c"
 #include "driver/gpio.h"
 
-static const char *TAG = "example";
+// static const char *TAG = "example";
 
 TaskHandle_t task1Handle = NULL;
 
