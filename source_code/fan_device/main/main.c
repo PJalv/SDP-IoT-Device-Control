@@ -4,6 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
+#include "freertos/queue.h"
 #include "../../utils/wifi.c"
 #include "../../utils/mqtt.h"
 #include "driver/gpio.h"
@@ -13,6 +14,9 @@
 
 TaskHandle_t task1Handle = NULL;
 TaskHandle_t countTaskHandle = NULL;
+TaskHandle_t arrayProcessHandle = NULL;
+QueueHandle_t xDCQueue;
+SemaphoreHandle_t dutyCycleSemaphore;
 int i, i_fanState = 0;
 char *fanState = "OFF";
 int dutyCycle = 32;
@@ -22,7 +26,13 @@ ledc_timer_config_t timer = {
     .timer_num = LEDC_TIMER_0,
     .freq_hz = 25000,
     .clk_cfg = LEDC_AUTO_CLK};
-
+ledc_channel_config_t channel = {
+    .gpio_num = 16,
+    .speed_mode = LEDC_HIGH_SPEED_MODE,
+    .channel = LEDC_CHANNEL_0,
+    .timer_sel = LEDC_TIMER_0,
+    .duty = 3,
+    .hpoint = 0};
 int counter = 0;
 static void IRAM_ATTR intr_handler(void *arg)
 {
@@ -33,17 +43,33 @@ void init()
 {
 
     nvs_flash_init();
+    dutyCycleSemaphore = xSemaphoreCreateBinary();
+
+    if (dutyCycleSemaphore == NULL)
+    {
+        /* There was insufficient FreeRTOS heap available for the semaphore to
+        be created successfully. */
+    }
+    else
+    {
+        printf("Semaphore Active!");
+    }
+    xDCQueue = xQueueCreate(5, sizeof(int));
+
     ledc_timer_config(&timer);
     getFanInfo(&i_fanState, &dutyCycle);
-    ledc_channel_config_t channel = {
-        .gpio_num = 16,
-        .speed_mode = LEDC_HIGH_SPEED_MODE,
-        .channel = LEDC_CHANNEL_0,
-        .timer_sel = LEDC_TIMER_0,
-        .duty = dutyCycle,
-        .hpoint = 0};
+    channel.duty = dutyCycle;
     ledc_channel_config(&channel);
-
+    if (i_fanState == 0)
+    {
+        gpio_set_level(19, 0);
+    }
+    else
+    {
+        gpio_set_level(19, 1);
+    }
+    setFanInfo(i_fanState, dutyCycle);
+    publish_state("fan/status/power", fanState);
     topicArray subscribeTopics = {
         .topics = {
             "fan/status/duty_cycle"},
@@ -88,6 +114,35 @@ void mqttTask(void *arg)
     }
 }
 
+void arrayProcess(void *arg)
+{
+    int txInt;
+    struct mqttData temp;
+    while (1)
+    {
+        if (xSemaphoreTake(dataSemaphore, portTICK_PERIOD_MS) == pdTRUE)
+        {
+
+            temp = pop();
+            if (temp.integerPayload.isInteger == 1)
+            {
+                txInt = temp.integerPayload.intData;
+                xQueueSend(xDCQueue, &txInt, portMAX_DELAY);
+                xSemaphoreGive(dutyCycleSemaphore);
+                printf("Data Sent to queue\n");
+            }
+            else if (temp.jsonPayload.isJson == 1)
+            {
+                /* code */
+            }
+            else
+            {
+                printf("Invalid array configuration.");
+            }
+        }
+    };
+}
+
 void task1(void *arg)
 {
     ledc_channel_config_t channel = {
@@ -99,26 +154,15 @@ void task1(void *arg)
         .hpoint = 0};
     ledc_channel_config(&channel);
     // this should be the first time the relay triggers fan to turn on/off
-    if (i_fanState == 0)
-    {
-        gpio_set_level(19, 0);
-    }
-    else
-    {
-        gpio_set_level(19, 1);
-    }
-    setFanInfo(i_fanState, dutyCycle);
-    publish_state("fan/status/power", fanState);
 
-    struct mqttData temp;
+    int dcApply;
     while (1)
     {
-        if (xSemaphoreTake(dataSemaphore, portTICK_PERIOD_MS) == pdTRUE)
+        xQueueReceive(xDCQueue, &dcApply, portMAX_DELAY);
+        if (xSemaphoreTake(dutyCycle, portTICK_PERIOD_MS) == pdTRUE)
         {
-
-            temp = pop();
-            i = temp.data;
-            switch (i)
+            printf("Acting upon receieved data from QUEUE\n");
+            switch (dcApply)
             {
             case 0:
                 gpio_set_level(19, 0);
@@ -136,15 +180,16 @@ void task1(void *arg)
                 setFanInfo(1, dutyCycle);
                 break;
             default:
-                channel.duty = i;
+                channel.duty = dcApply;
                 dutyCycle = channel.duty;
                 ledc_channel_config(&channel);
                 printf("FAN DUTY CYCLE CHANGED: NEW D/C = %d \n", dutyCycle);
                 setFanInfo(i_fanState, dutyCycle);
             }
         }
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
+
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
 }
 
 void app_main(void)
@@ -156,4 +201,5 @@ void app_main(void)
     xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
     xTaskCreate(task1, "task1", 4096, NULL, 10, &task1Handle);
     xTaskCreate(countTask, "countTask", 4096, NULL, 10, &countTaskHandle);
+    xTaskCreate(arrayProcess, "Event processor", 4096, NULL, 10, &arrayProcessHandle);
 }

@@ -9,12 +9,16 @@
 #include "freertos/task.h"
 #include "esp_event.h"
 #include "mqtt_client.h"
+#include <cJSON.h>
 
 bool hasConnected = false;
 static const char *TAG = "MQTT";
 struct mqttData temp = {
     .topic = "",
-    .data = 0};
+    .integerPayload = {
+        .isInteger = 0,
+        .intData = 0},
+    .jsonPayload = {.isJson = 0, .jsonData = ""}};
 
 SemaphoreHandle_t dataSemaphore = NULL;
 TaskHandle_t mqttTaskHandle = NULL;
@@ -22,6 +26,19 @@ struct mqttData transfer[MAX_SIZE];
 int transfer_size = 0;
 
 topicArray subscribeTopics;
+
+void resetMqttData(struct mqttData *data)
+{
+    strcpy(data->topic, ""); // Reset topic to an empty string
+
+    // Reset integerPayload values
+    data->integerPayload.isInteger = 0;
+    data->integerPayload.intData = 0;
+
+    // Reset jsonPayload values
+    data->jsonPayload.isJson = 0;
+    strcpy(data->jsonPayload.jsonData, ""); // Reset jsonData to an empty string
+}
 
 void sendStringArray(topicArray *array)
 {
@@ -49,7 +66,12 @@ void push(struct mqttData value)
 
 struct mqttData pop()
 {
-    struct mqttData defaultValue = {NULL, 0};
+    struct mqttData defaultValue = {
+        .topic = "",
+        .integerPayload = {
+            .isInteger = 0,
+            .intData = 0},
+        .jsonPayload = {.isJson = 0, .jsonData = ""}};
     if (transfer_size > 0)
     {
         ESP_LOGI(TAG, "Popped from the array.");
@@ -61,6 +83,54 @@ struct mqttData pop()
         return defaultValue;
     }
 }
+
+void mqtt_message_handler(esp_mqtt_event_handle_t event)
+{
+
+    // Check for JSON payload
+    if (strncmp(event->data, "JSON:", 5) == 0)
+    {
+        // This is a JSON payload
+        const char *json_data = event->data + 5; // Skip the "JSON:" marker
+        temp.topic = event->topic;
+        temp.jsonPayload.isJson = 1;
+        temp.jsonPayload.jsonData = json_data;
+        push(temp);
+    }
+    else if (strncmp(event->data, "INT:", 4) == 0) // Check for Integer payload
+    {
+        // This is an Integer payload
+        const char *int_data = event->data + 4; // Skip the "INT:" marker
+
+        // Allocate memory for the string representation of the integer payload
+        char *result = malloc(((event->data_len - 4) + 1) * sizeof(char)); // Subtract 4 for the "INT:" marker
+
+        if (result == NULL)
+        {
+            fprintf(stderr, "Memory allocation failed\n");
+            return; // Exit or handle memory allocation failure
+        }
+
+        // Copy the integer payload (after "INT:") to the result string
+        strncpy(result, int_data, event->data_len - 4); // Copy the integer payload without the "INT:" marker
+        result[event->data_len - 4] = '\0';             // Null-terminate the string
+
+        int int_value = atoi(result); // Convert string to integer
+
+        printf("Received integer value: %d\r\n", int_value);
+        // Process int_value as an integer payload
+
+        free(result); // Free allocated memory when done using it
+        temp.topic = event->topic;
+        temp.integerPayload.isInteger = 1;
+        temp.integerPayload.intData = int_value;
+        push(temp);
+    }
+    resetMqttData(&temp);
+    xSemaphoreGive(dataSemaphore);
+
+}
+
 static void log_error_if_nonzero(const char *message, int error_code)
 {
     if (error_code != 0)
@@ -100,25 +170,8 @@ void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event
         printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
         printf("DATA=%.*s\r\n", event->data_len, event->data);
         printf(" , data length: %d\n", event->data_len);
-
-        char *result = malloc(((event->data_len) + 1) * sizeof(char));
-
-        if (result == NULL)
-        {
-            fprintf(stderr, "Memory allocation failed\n");
-        }
-        strncpy(result, event->data, event->data_len);
-        result[event->data_len] = '\0';
-
-        temp.data = atoi(result);
-        temp.topic = event->topic;
-        printf("TEMP DATA = %d\n", temp.data);
-        push(temp);
-        printf("\nPushed %d into the transfer array.\n", transfer[0].data);
-
-        ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-        free(result);
-        xSemaphoreGive(dataSemaphore);
+        mqtt_message_handler(event);
+        // xSemaphoreGive(dataSemaphore);
         break;
     case MQTT_EVENT_ERROR:
         ESP_LOGI(TAG, "MQTT_EVENT_ERROR");

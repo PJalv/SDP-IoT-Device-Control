@@ -14,8 +14,17 @@ extern SemaphoreHandle_t dataSemaphore;
 extern TaskHandle_t mqttTaskHandle;
 struct mqttData
 {
-    char *topic;
-    int data;
+    const char *topic;
+    struct
+    {
+        int isInteger; // 0 if not an integer payload, 1 if it is
+        int intData;
+    } integerPayload;
+    struct
+    {
+        int isJson; // 0 if not a JSON payload, 1 if it is
+        const char *jsonData;
+    } jsonPayload;
 };
 
 typedef struct
