@@ -24,16 +24,25 @@ void setFanInfo(int power, int dutyCycle)
         return;
     }
 
+    // Store values in NVS
     err = nvs_set_i32(my_handle, POWER_KEY, power);
-    err |= nvs_set_i32(my_handle, RPM_KEY, dutyCycle);
-
     if (err != ESP_OK)
     {
-        printf("Error (%s) setting values to NVS!\n", esp_err_to_name(err));
+        printf("Error (%s) setting power value to NVS!\n", esp_err_to_name(err));
     }
     else
     {
-        printf("Success setting values!\n");
+        printf("Power value stored in NVS: %d\n", power);
+    }
+
+    err |= nvs_set_i32(my_handle, RPM_KEY, dutyCycle);
+    if (err != ESP_OK)
+    {
+        printf("Error (%s) setting duty cycle value to NVS!\n", esp_err_to_name(err));
+    }
+    else
+    {
+        printf("Duty cycle value stored in NVS: %d\n", dutyCycle);
     }
 
     // Commit changes to NVS
@@ -44,7 +53,7 @@ void setFanInfo(int power, int dutyCycle)
     }
     else
     {
-        printf("Success Committing!\n");
+        printf("Values successfully committed to NVS!\n");
     }
 
     // Close NVS
@@ -62,16 +71,25 @@ void getFanInfo(int *power, int *dutyCycle)
         return;
     }
 
+    // Retrieve values from NVS
     err = nvs_get_i32(my_handle, POWER_KEY, power);
-    err |= nvs_get_i32(my_handle, RPM_KEY, dutyCycle);
-
     if (err != ESP_OK)
     {
-        printf("Error (%s) reading values from NVS!\n", esp_err_to_name(err));
+        printf("Error (%s) reading power value from NVS!\n", esp_err_to_name(err));
     }
     else
     {
-        printf("Retrieval Success!\n");
+        printf("Retrieved power value from NVS: %d\n", *power);
+    }
+
+    err |= nvs_get_i32(my_handle, RPM_KEY, dutyCycle);
+    if (err != ESP_OK)
+    {
+        printf("Error (%s) reading duty cycle value from NVS!\n", esp_err_to_name(err));
+    }
+    else
+    {
+        printf("Retrieved duty cycle value from NVS: %d\n", *dutyCycle);
     }
 
     // Close NVS
