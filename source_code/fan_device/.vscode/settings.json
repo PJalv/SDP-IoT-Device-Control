@@ -7,5 +7,7 @@
     },
     "idf.openOcdConfigs": [
         "board/esp32-bridge.cfg"
-    ]
+    ],
+    "idf.flashType": "UART",
+    "idf.portWin": "COM7"
 }

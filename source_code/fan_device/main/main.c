@@ -114,9 +114,8 @@ void app_main(void)
     init();
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     xTaskCreate(wifiTask, "wifi", 4096, NULL, 10, &wifiTaskHandle);
-    vTaskDelay(3000 / portTICK_PERIOD_MS);
-    xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
     vTaskDelay(1000 / portTICK_PERIOD_MS);
+    xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
     xTaskCreate(task1, "task1", 4096, NULL, 10, &task1Handle);
     xTaskCreate(countTask, "countTask", 4096, NULL, 10, &countTaskHandle);
 }
