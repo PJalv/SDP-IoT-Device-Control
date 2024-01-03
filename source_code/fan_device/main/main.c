@@ -4,18 +4,32 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "../../utils/wifi.c"
-#include "mqtt.h"
+#include "../../utils/mqtt.h"
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 
-TaskHandle_t wifiTaskHandle = NULL;
+
 TaskHandle_t task1Handle = NULL;
-TaskHandle_t mqttTaskHandle = NULL;
 TaskHandle_t countTaskHandle = NULL;
 int counter = 0;
 static void IRAM_ATTR intr_handler(void *arg)
 {
     counter++;
+}
+
+void init()
+{
+    topicArray myStrings = {
+        .topics = {
+            "fan/status/duty_cycle"},
+        .numStrings = 1 // Update this with the actual number of strings (topics)
+    };
+    sendStringArray(&myStrings);
+
+    gpio_set_intr_type(15, GPIO_INTR_POSEDGE);
+    gpio_install_isr_service(0);
+    gpio_isr_handler_add(15, intr_handler, NULL);
+    gpio_set_direction(19, GPIO_MODE_OUTPUT);
 }
 
 void countTask()
@@ -66,9 +80,9 @@ void task1(void *arg)
         .duty = 32,
         .hpoint = 0};
 
-    gpio_set_level(19, 1);
-
     ledc_channel_config(&channel);
+    gpio_set_level(19, 0); // this should be the first time the relay triggers fan to turn on/off
+
     struct mqttData temp;
     while (1)
     {
@@ -91,36 +105,18 @@ void task1(void *arg)
             }
             printf("FAN DUTY CYCLE CHANGED: NEW D/C = %d \n", i);
         }
-        vTaskDelay(1000 / portTICK_PERIOD_MS); // Some delay between iterations
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
 
 void app_main(void)
 {
-
-    topicArray myStrings = {
-        .topics = {
-            "fan/status/duty_cycle"},
-        .numStrings = 1 // Update this with the actual number of strings
-    };
-    sendStringArray(&myStrings);
-
-    gpio_set_intr_type(15, GPIO_INTR_POSEDGE);
-    gpio_install_isr_service(0);
-    gpio_isr_handler_add(15, intr_handler, NULL);
-    gpio_set_direction(19, GPIO_MODE_OUTPUT);
-
+    init();
     vTaskDelay(1000 / portTICK_PERIOD_MS);
-
-    // vTaskDelay(5000 / portTICK_PERIOD_MS);
-    // gpio_set_level(19, 0);
-    xTaskCreate(countTask, "countTask", 4096, NULL, 10, &countTaskHandle);
     xTaskCreate(wifiTask, "wifi", 4096, NULL, 10, &wifiTaskHandle);
     vTaskDelay(3000 / portTICK_PERIOD_MS);
     xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
-    vTaskDelay(10000 / portTICK_PERIOD_MS);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
     xTaskCreate(task1, "task1", 4096, NULL, 10, &task1Handle);
-    // printf("Waiting for 10 secs...");
-    // vTaskDelay(10000 / portTICK_PERIOD_MS);
-    // // publish_state("test/status", "Hello from MQTT!");
+    xTaskCreate(countTask, "countTask", 4096, NULL, 10, &countTaskHandle);
 }
