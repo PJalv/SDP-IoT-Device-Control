@@ -16,7 +16,7 @@ TaskHandle_t task1Handle = NULL;
 TaskHandle_t countTaskHandle = NULL;
 TaskHandle_t arrayProcessHandle = NULL;
 QueueHandle_t xDCQueue;
-SemaphoreHandle_t dutyCycleSemaphore;
+SemaphoreHandle_t semaphoreDutyCycle;
 int i, i_fanState = 0;
 char *fanState = "OFF";
 int dutyCycle = 32;
@@ -43,9 +43,9 @@ void init()
 {
 
     nvs_flash_init();
-    dutyCycleSemaphore = xSemaphoreCreateBinary();
+    semaphoreDutyCycle = xSemaphoreCreateBinary();
 
-    if (dutyCycleSemaphore == NULL)
+    if (semaphoreDutyCycle == NULL)
     {
         /* There was insufficient FreeRTOS heap available for the semaphore to
         be created successfully. */
@@ -60,7 +60,8 @@ void init()
     getFanInfo(&i_fanState, &dutyCycle);
     channel.duty = dutyCycle;
     ledc_channel_config(&channel);
-    if (i_fanState == 0)
+    if (i_fanState == 0) // this should be the first time the relay triggers fan to turn on/off
+
     {
         gpio_set_level(19, 0);
     }
@@ -117,6 +118,7 @@ void arrayProcess(void *arg)
 {
     int txInt;
     struct mqttData temp;
+    printf("Waiting for data event...\n");
     while (1)
     {
         if (xSemaphoreTake(dataSemaphore, portTICK_PERIOD_MS) == pdTRUE)
@@ -125,9 +127,11 @@ void arrayProcess(void *arg)
             temp = pop();
             if (temp.integerPayload.isInteger == 1)
             {
+                printf("POPPED DATA HAS INTEGER.\n");
                 txInt = temp.integerPayload.intData;
+                printf("SET txINT SUCCESSFULLY");
                 xQueueSend(xDCQueue, &txInt, portMAX_DELAY);
-                xSemaphoreGive(dutyCycleSemaphore);
+                xSemaphoreGive(semaphoreDutyCycle);
                 printf("Data Sent to queue\n");
             }
             else if (temp.jsonPayload.isJson == 1)
@@ -152,14 +156,15 @@ void task1(void *arg)
         .duty = dutyCycle,
         .hpoint = 0};
     ledc_channel_config(&channel);
-    // this should be the first time the relay triggers fan to turn on/off
 
     int dcApply;
     while (1)
     {
+
         xQueueReceive(xDCQueue, &dcApply, portMAX_DELAY);
-        if (xSemaphoreTake(dutyCycle, portTICK_PERIOD_MS) == pdTRUE)
+        if (xSemaphoreTake(semaphoreDutyCycle, portTICK_PERIOD_MS) == pdTRUE)
         {
+
             printf("Acting upon receieved data from QUEUE\n");
             switch (dcApply)
             {

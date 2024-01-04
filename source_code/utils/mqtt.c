@@ -27,19 +27,6 @@ int transfer_size = 0;
 
 topicArray subscribeTopics;
 
-void resetMqttData(struct mqttData *data)
-{
-    strcpy(data->topic, ""); // Reset topic to an empty string
-
-    // Reset integerPayload values
-    data->integerPayload.isInteger = 0;
-    data->integerPayload.intData = 0;
-
-    // Reset jsonPayload values
-    data->jsonPayload.isJson = 0;
-    strcpy(data->jsonPayload.jsonData, ""); // Reset jsonData to an empty string
-}
-
 void sendStringArray(topicArray *array)
 {
     printf("Received String Array with %d strings...\n", array->numStrings);
@@ -99,6 +86,8 @@ void mqtt_message_handler(esp_mqtt_event_handle_t event)
         temp.topic = event->topic;
         temp.jsonPayload.isJson = 1;
         temp.jsonPayload.jsonData = json_data;
+        temp.integerPayload.isInteger = 0;
+        temp.integerPayload.intData = 0;
 
         printf("Pushing JSON payload to processing\r\n");
         push(temp);
@@ -131,18 +120,16 @@ void mqtt_message_handler(esp_mqtt_event_handle_t event)
         temp.topic = event->topic;
         temp.integerPayload.isInteger = 1;
         temp.integerPayload.intData = int_value;
+        temp.jsonPayload.isJson = 0;
+        temp.jsonPayload.jsonData = "";
 
         printf("Pushing integer payload to processing\r\n");
         push(temp);
 
         free(result); // Free allocated memory when done using it
     }
-
-    printf("Resetting MQTT data\r\n");
-    resetMqttData(&temp);
     xSemaphoreGive(dataSemaphore);
 }
-
 
 static void log_error_if_nonzero(const char *message, int error_code)
 {

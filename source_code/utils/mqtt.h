@@ -36,9 +36,9 @@ typedef struct
 void sendStringArray(topicArray *array); // Function declaration
 
 extern struct mqttData transfer[MAX_SIZE];
-
 void push(struct mqttData value);
 struct mqttData pop();
+void mqtt_message_handler(esp_mqtt_event_handle_t event);
 void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data);
 void mqtt_app_start(void);
 void publish_state(char *topic, char *data);
