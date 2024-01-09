@@ -3,12 +3,14 @@
 
 #include "nvs_flash.h"
 
-#define FAN_NAMESPACE "fan"
-#define POWER_KEY "power"
-#define RPM_KEY "rpm"
+#define LED_NAMESPACE "LED"
 
+#define POWER_KEY "power"
+#define RED_KEY "RED"
+#define GREEN_KEY "GREEN"
+#define BLUE_KEY "BLUE"
 // Function prototypes
-void setFanInfo(int power, int dutyCycle);
-void getFanInfo(int *power, int *dutyCycle);
+void setLEDInfo(int power, int red, int green, int blue);
+void getLEDInfo(int *power, int *red, int *green, int *blue);
 
 #endif /* FAN_NVS_H */

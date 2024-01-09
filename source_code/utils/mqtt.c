@@ -73,7 +73,7 @@ struct mqttData pop()
 
 void mqtt_message_handler(esp_mqtt_event_handle_t event)
 {
-    printf("Received MQTT message: %s\r\n", event->data);
+    // printf("Received MQTT message: %s\r\n", event->data);
 
     // Check for JSON payload
     if (strncmp(event->data, "JSON:", 5) == 0)
@@ -81,7 +81,7 @@ void mqtt_message_handler(esp_mqtt_event_handle_t event)
         printf("JSON payload detected\r\n");
         // This is a JSON payload
         const char *json_data = event->data + 5; // Skip the "JSON:" marker
-        printf("JSON data: %s\r\n", json_data);
+        // printf("JSON data: %s\r\n", json_data);
 
         temp.topic = event->topic;
         temp.jsonPayload.isJson = 1;

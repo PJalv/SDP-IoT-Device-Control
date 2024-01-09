@@ -8,6 +8,7 @@
 #include "esp_err.h"
 #include "../../../utils/mqtt.h"
 #include "../../../utils/wifi.c"
+#include "storage_nvs.h"
 #include "led_config.c"
 #include "driver/gpio.h"
 #include "cJSON.h"
@@ -15,11 +16,15 @@
 // static const char *TAG = "example";
 
 TaskHandle_t task1Handle = NULL;
+TaskHandle_t task2Handle = NULL;
 TaskHandle_t arrayProcessHandle = NULL;
 QueueHandle_t xPowerQueue;
 QueueHandle_t xColorQueue;
 SemaphoreHandle_t semaphorePower;
 SemaphoreHandle_t semaphoreColor;
+led_strip_handle_t led_strip;
+int red, green, blue, power;
+esp_err_t err;
 void init()
 {
     nvs_flash_init();
@@ -27,8 +32,6 @@ void init()
 
     if (semaphoreColor == NULL)
     {
-        /* There was insufficient FreeRTOS heap available for the semaphore to
-        be created successfully. */
     }
     else
     {
@@ -38,14 +41,34 @@ void init()
 
     if (semaphorePower == NULL)
     {
-        /* There was insufficient FreeRTOS heap available for the semaphore to
-        be created successfully. */
     }
     else
     {
         printf("Semaphore Active!");
     }
     xColorQueue = xQueueCreate(5, 3 * sizeof(int));
+    xPowerQueue = xQueueCreate(5, sizeof(int));
+
+    red = green = blue = 255;
+    getLEDInfo(&power, &red, &green, &blue);
+    led_strip = configure_led();
+    switch (power)
+    {
+    case 0:
+        led_strip_clear(led_strip);
+        break;
+    case 1:
+        for (int i = 0; i < LED_STRIP_LED_NUMBERS; i++)
+        {
+            ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, red, green, blue));
+        }
+        /* Refresh the strip to send data */
+        ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+    default:
+        break;
+    }
+    setLEDInfo(power, red, green, blue);
+
     topicArray subscribeTopics = {
         .topics = {
             "led/status/power",
@@ -74,6 +97,7 @@ void mqttTask(void *arg)
 void arrayProcess(void *arg)
 {
     int txInt, red, green, blue;
+    txInt = red = green = blue = 0;
     char *red_obj;
     char *green_obj;
     char *blue_obj;
@@ -90,9 +114,26 @@ void arrayProcess(void *arg)
             {
                 printf("POPPED DATA HAS INTEGER.\n");
                 txInt = temp.integerPayload.intData;
-                printf("SET txINT SUCCESSFULLY");
-                xQueueSend(xPowerQueue, &txInt, portMAX_DELAY);
-                xSemaphoreGive(semaphorePower);
+                printf("SET txINT SUCCESSFULLY\n");
+                // xQueueSend(xPowerQueue, &txInt, portMAX_DELAY);
+                // xSemaphoreGive(semaphorePower);
+                switch (txInt)
+                {
+                case 0:
+                    led_strip_clear(led_strip);
+                    break;
+                case 1:
+                    for (int i = 0; i < LED_STRIP_LED_NUMBERS; i++)
+                    {
+                        led_strip_set_pixel(led_strip, i, red, green, blue);
+                    }
+                    vTaskDelay(100 / portTICK_PERIOD_MS);
+                    led_strip_refresh(led_strip);
+                    printf("Refreshed\n");
+                default:
+                    break;
+                }
+                setLEDInfo(txInt, red, green, blue);
                 printf("Data Sent to queue\n");
             }
             else if (temp.jsonPayload.isJson == 1)
@@ -101,7 +142,6 @@ void arrayProcess(void *arg)
                 if (root == NULL)
                 {
                     printf("Error parsing JSON: %s\n", cJSON_GetErrorPtr());
-                    
                 }
                 cJSON *red_obj = cJSON_GetObjectItem(root, "red");
                 cJSON *green_obj = cJSON_GetObjectItem(root, "green");
@@ -110,7 +150,6 @@ void arrayProcess(void *arg)
                 {
                     printf("Error getting JSON values\n");
                     cJSON_Delete(root);
-                    
                 }
                 red = red_obj->valueint;
                 green = green_obj->valueint;
@@ -122,8 +161,15 @@ void arrayProcess(void *arg)
                 txRGB[0] = red;
                 txRGB[1] = green;
                 txRGB[2] = blue;
-                xQueueSend(xColorQueue, &txRGB, portMAX_DELAY);
-                xSemaphoreGive(semaphoreColor);
+                // xQueueSend(xColorQueue, &txRGB, portMAX_DELAY);
+                // xSemaphoreGive(semaphoreColor);
+                for (int i = 0; i < LED_STRIP_LED_NUMBERS; i++)
+                {
+                    ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, red, green, blue));
+                }
+                ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+                printf("Refreshed");
+                setLEDInfo(power, red, green, blue);
             }
             else
             {
@@ -134,26 +180,46 @@ void arrayProcess(void *arg)
 }
 void task1(void *arg)
 {
+    int rxInt;
 
-    int rxRGB[3];
-    int red, green, blue;
-    red = green = blue = 255;
-    led_strip_handle_t led_strip = configure_led();
-    bool isLedOn = false;
-    for (int i = 0; i < LED_STRIP_LED_NUMBERS; i++)
-    {
-        ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, red, green, blue));
-    }
-    /* Refresh the strip to send data */
-    ESP_ERROR_CHECK(led_strip_refresh(led_strip));
-
-    ESP_LOGI(TAG, "Start blinking LED strip");
-    struct mqttData temp;
     while (1)
     {
-        xQueueReceive(xColorQueue, &rxRGB, portMAX_DELAY);
+
+        if (xSemaphoreTake(semaphorePower, portTICK_PERIOD_MS) == pdTRUE)
+        {
+            xQueueReceive(xPowerQueue, &rxInt, portMAX_DELAY);
+            printf("Acting on power semaphore.\n");
+            switch (rxInt)
+            {
+            case 0:
+                led_strip_clear(led_strip);
+                break;
+            case 1:
+                for (int i = 0; i < LED_STRIP_LED_NUMBERS; i++)
+                {
+                    ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, red, green, blue));
+                }
+                ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+                printf("Refreshed");
+            default:
+                break;
+            }
+            setLEDInfo(power, red, green, blue);
+        }
+
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
+void task2(void *arg)
+{
+
+    int rxRGB[3];
+
+    while (1)
+    {
         if (xSemaphoreTake(semaphoreColor, portTICK_PERIOD_MS) == pdTRUE)
         {
+            xQueueReceive(xColorQueue, &rxRGB, portMAX_DELAY);
 
             red = rxRGB[0];
             green = rxRGB[1];
@@ -163,6 +229,8 @@ void task1(void *arg)
                 ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, red, green, blue));
             }
             ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+            printf("Refreshed");
+            setLEDInfo(power, red, green, blue);
         }
 
         vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -176,6 +244,7 @@ void app_main(void)
     xTaskCreate(wifiTask, "wifi", 4096, NULL, 10, &wifiTaskHandle);
     vTaskDelay(5000 / portTICK_PERIOD_MS);
     xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
-    xTaskCreate(task1, "task1", 4096, NULL, 10, &task1Handle);
+    // xTaskCreate(task1, "task1", 4096, NULL, 10, &task1Handle);
+    // xTaskCreate(task2, "task2", 4096, NULL, 10, &task2Handle);
     xTaskCreate(arrayProcess, "Event processor", 4096, NULL, 10, &arrayProcessHandle);
 }
