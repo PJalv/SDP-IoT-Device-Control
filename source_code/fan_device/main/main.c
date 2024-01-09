@@ -34,9 +34,73 @@ ledc_channel_config_t channel = {
     .duty = 3,
     .hpoint = 0};
 int counter = 0;
-static void IRAM_ATTR intr_handler(void *arg)
+static void IRAM_ATTR rpm_handler(void *arg)
 {
     counter++;
+}
+TickType_t lastInterrupt = 0;
+TickType_t currentInterrupt = 0;
+
+static void power_button(void *arg)
+{
+    currentInterrupt = xTaskGetTickCountFromISR();
+
+    if ((currentInterrupt - lastInterrupt) > pdMS_TO_TICKS(50))
+    {
+        if (i_fanState == 1) // this should be the first time the relay triggers fan to turn on/off
+        {
+            gpio_set_level(19, 0);
+            fanState = "ON";
+            i_fanState = 0;
+        }
+        else
+        {
+            gpio_set_level(19, 1);
+            fanState = "OFF";
+            i_fanState = 1;
+        }
+    }
+}
+
+static void lower_dc(void *arg)
+{
+    currentInterrupt = xTaskGetTickCountFromISR();
+    if ((currentInterrupt - lastInterrupt) > pdMS_TO_TICKS(25))
+    {
+        if (dutyCycle >= 90)
+        {
+            if ((dutyCycle - 200) < 90)
+            {
+                dutyCycle = 90;
+            }
+            else
+            {
+                dutyCycle -= 200;
+            }
+            channel.duty = dutyCycle;
+            ledc_channel_config(&channel);
+        }
+    }
+}
+static void increase_dc(void *arg)
+{
+    currentInterrupt = xTaskGetTickCountFromISR();
+    if ((currentInterrupt - lastInterrupt) > pdMS_TO_TICKS(25))
+    {
+        if (dutyCycle <= 1024)
+        {
+            if ((dutyCycle + 200) > 1000)
+            {
+                dutyCycle = 1000;
+            }
+            else
+            {
+                dutyCycle += 200;
+            }
+            channel.duty = dutyCycle;
+            ledc_channel_config(&channel);
+        }
+    }
 }
 
 void init()
@@ -58,6 +122,7 @@ void init()
 
     ledc_timer_config(&timer);
     getFanInfo(&i_fanState, &dutyCycle);
+    printf("FAN DC FROM NVS:%d", dutyCycle);
     channel.duty = dutyCycle;
     ledc_channel_config(&channel);
     if (i_fanState == 0) // this should be the first time the relay triggers fan to turn on/off
@@ -78,10 +143,22 @@ void init()
 
     sendStringArray(&subscribeTopics);
 
-    gpio_set_intr_type(15, GPIO_INTR_POSEDGE);
     gpio_install_isr_service(0);
-    gpio_isr_handler_add(15, intr_handler, NULL);
+    gpio_set_intr_type(15, GPIO_INTR_POSEDGE);
+    gpio_isr_handler_add(15, rpm_handler, NULL);
     gpio_set_direction(19, GPIO_MODE_OUTPUT);
+    gpio_set_direction(12, GPIO_MODE_INPUT);
+    gpio_set_direction(14, GPIO_MODE_INPUT);
+    gpio_set_direction(27, GPIO_MODE_INPUT);
+    gpio_set_intr_type(12, GPIO_INTR_NEGEDGE);
+    gpio_isr_handler_add(12, power_button, NULL);
+    gpio_set_pull_mode(12, GPIO_PULLUP_ONLY);
+    gpio_set_intr_type(14, GPIO_INTR_NEGEDGE);
+    gpio_set_intr_type(27, GPIO_INTR_NEGEDGE);
+    gpio_isr_handler_add(14, lower_dc, NULL);
+    gpio_isr_handler_add(27, increase_dc, NULL);
+    gpio_set_pull_mode(14, GPIO_PULLUP_ONLY);
+    gpio_set_pull_mode(27, GPIO_PULLUP_ONLY);
 }
 
 void countTask()
@@ -90,6 +167,7 @@ void countTask()
     {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         printf("Current RPM = %d\n...", counter * 30);
+        printf("Current DC = %d\n...", dutyCycle);
         counter = 0;
     }
     vTaskDelete(NULL);
@@ -165,7 +243,6 @@ void task1(void *arg)
         if (xSemaphoreTake(semaphoreDutyCycle, portTICK_PERIOD_MS) == pdTRUE)
         {
 
-            printf("Acting upon receieved data from QUEUE\n");
             switch (dcApply)
             {
             case 0:
@@ -189,6 +266,7 @@ void task1(void *arg)
                 ledc_channel_config(&channel);
                 printf("FAN DUTY CYCLE CHANGED: NEW D/C = %d \n", dutyCycle);
                 setFanInfo(i_fanState, dutyCycle);
+                break;
             }
         }
     }
