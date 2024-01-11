@@ -43,11 +43,11 @@ void push(struct mqttData value)
     if (transfer_size < MAX_SIZE)
     {
         transfer[transfer_size++] = value;
-        ESP_LOGI(TAG, "Pushed to the array.");
+        // ESP_LOGI(TAG, "Pushed to the array.");
     }
     else
     {
-        ESP_LOGI(TAG, "Array is full, cannot push.");
+        // ESP_LOGI(TAG, "Array is full, cannot push.");
     }
 }
 

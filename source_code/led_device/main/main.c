@@ -12,7 +12,7 @@
 #include "led_config.c"
 #include "driver/gpio.h"
 #include "cJSON.h"
-
+#include "esp_random.h"
 // static const char *TAG = "example";
 
 TaskHandle_t task1Handle = NULL;
@@ -23,8 +23,105 @@ QueueHandle_t xColorQueue;
 SemaphoreHandle_t semaphorePower;
 SemaphoreHandle_t semaphoreColor;
 led_strip_handle_t led_strip;
-int red, green, blue, power;
-esp_err_t err;
+int red = 0, green = 0, blue = 0, power = 0;
+
+TickType_t currentInterrupt = 0;
+TickType_t lastInterrupt = 0;
+int timeBetweenPresses;
+TickType_t delay = pdMS_TO_TICKS(5);
+struct mqttData isrStruct = {
+    .topic = "",
+    .integerPayload = {
+        .isInteger = 0,
+        .intData = 0},
+    .jsonPayload = {.isJson = 0, .jsonData = ""}};
+
+double generateRandomNumber()
+{
+    // Get a random 32-bit word
+    uint32_t randomValue = esp_random();
+
+    // Map the 32-bit random value to the range [0, 255]
+    double randomNumber = (double)(randomValue % 256);
+
+    return randomNumber;
+}
+
+static void power_button(void *arg)
+{
+    // Read button state
+    int button_state = gpio_get_level(12); // Replace BUTTON_GPIO with your button's GPIO
+
+    // Variables to track debounce
+    static TickType_t last_interrupt_time = 0;
+    TickType_t current_interrupt_time = xTaskGetTickCountFromISR();
+    TickType_t time_since_last_interrupt = current_interrupt_time - last_interrupt_time;
+
+    if (button_state == 0)
+    { // Button pressed (assuming low is pressed)
+
+        if (time_since_last_interrupt > pdMS_TO_TICKS(180) && time_since_last_interrupt != 0)
+        {
+            // Debounced button press detected
+            if (power == 1)
+            {
+                isrStruct.integerPayload.isInteger = 1;
+                isrStruct.integerPayload.intData = 0;
+            }
+            else
+            {
+                isrStruct.integerPayload.isInteger = 1;
+                isrStruct.integerPayload.intData = 1;
+            }
+            push(isrStruct);
+            // Process the power change
+            isrStruct.integerPayload.isInteger = 0;
+            isrStruct.integerPayload.intData = 0;
+            xSemaphoreGiveFromISR(dataSemaphore, pdFALSE);
+        }
+
+        last_interrupt_time = current_interrupt_time;
+    }
+}
+
+static void change_color(void *arg)
+{
+    // Read button state
+    int button_state = gpio_get_level(14); // Replace BUTTON_GPIO with your button's GPIO
+
+    // Variables to track debounce
+    static TickType_t last_interrupt_time = 0;
+    TickType_t current_interrupt_time = xTaskGetTickCountFromISR();
+    TickType_t time_since_last_interrupt = current_interrupt_time - last_interrupt_time;
+
+    if (button_state == 0)
+    { // Button pressed (assuming low is pressed)
+
+        if (time_since_last_interrupt > pdMS_TO_TICKS(180) && time_since_last_interrupt != 0)
+        {
+            // Debounced button press detected
+            cJSON *root = cJSON_CreateObject();
+
+            // Set values for keys
+            cJSON_AddItemToObject(root, "red", cJSON_CreateNumber(generateRandomNumber()));
+            cJSON_AddItemToObject(root, "green", cJSON_CreateNumber(generateRandomNumber()));
+            cJSON_AddItemToObject(root, "blue", cJSON_CreateNumber(generateRandomNumber()));
+
+            // Convert the JSON object to a string
+            char *json_data = cJSON_Print(root);
+            isrStruct.jsonPayload.isJson = 1;
+            isrStruct.jsonPayload.jsonData = json_data;
+            // Release the cJSON object
+            cJSON_Delete(root);
+            push(isrStruct);
+            // Process the power change
+            xSemaphoreGiveFromISR(dataSemaphore, pdFALSE);
+        }
+
+        last_interrupt_time = current_interrupt_time;
+    }
+}
+
 void init()
 {
     nvs_flash_init();
@@ -49,8 +146,12 @@ void init()
     xColorQueue = xQueueCreate(5, 3 * sizeof(int));
     xPowerQueue = xQueueCreate(5, sizeof(int));
 
-    red = green = blue = 255;
     getLEDInfo(&power, &red, &green, &blue);
+    if (red == 0)
+    {
+        red = green = blue = 255;
+    }
+
     led_strip = configure_led();
     switch (power)
     {
@@ -75,6 +176,16 @@ void init()
             "led/control/color"},
         .numStrings = 2};
     sendStringArray(&subscribeTopics);
+
+    gpio_install_isr_service(0);
+    gpio_set_direction(12, GPIO_MODE_INPUT);
+    gpio_set_pull_mode(12, GPIO_PULLUP_ONLY);
+    gpio_set_intr_type(12, GPIO_INTR_NEGEDGE);
+    gpio_isr_handler_add(12, power_button, NULL);
+    gpio_set_direction(14, GPIO_MODE_INPUT);
+    gpio_set_pull_mode(14, GPIO_PULLUP_ONLY);
+    gpio_set_intr_type(14, GPIO_INTR_NEGEDGE);
+    gpio_isr_handler_add(14, change_color, NULL);
 }
 void wifiTask(void *arg)
 {
@@ -96,8 +207,8 @@ void mqttTask(void *arg)
 }
 void arrayProcess(void *arg)
 {
-    int txInt, red, green, blue;
-    txInt = red = green = blue = 0;
+    int txInt;
+    txInt = 0;
     char *red_obj;
     char *green_obj;
     char *blue_obj;
@@ -121,8 +232,10 @@ void arrayProcess(void *arg)
                 {
                 case 0:
                     led_strip_clear(led_strip);
+                    power = 0;
                     break;
                 case 1:
+                    power = 1;
                     for (int i = 0; i < LED_STRIP_LED_NUMBERS; i++)
                     {
                         led_strip_set_pixel(led_strip, i, red, green, blue);
@@ -158,17 +271,18 @@ void arrayProcess(void *arg)
                 printf("Green: %d\n", green);
                 printf("Blue: %d\n", blue);
                 cJSON_Delete(root);
-                txRGB[0] = red;
-                txRGB[1] = green;
-                txRGB[2] = blue;
-                // xQueueSend(xColorQueue, &txRGB, portMAX_DELAY);
-                // xSemaphoreGive(semaphoreColor);
-                for (int i = 0; i < LED_STRIP_LED_NUMBERS; i++)
+                if (power != 0)
                 {
-                    ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, red, green, blue));
+
+                    // xQueueSend(xColorQueue, &txRGB, portMAX_DELAY);
+                    // xSemaphoreGive(semaphoreColor);
+                    for (int i = 0; i < LED_STRIP_LED_NUMBERS; i++)
+                    {
+                        ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, red, green, blue));
+                    }
+                    ESP_ERROR_CHECK(led_strip_refresh(led_strip));
                 }
-                ESP_ERROR_CHECK(led_strip_refresh(led_strip));
-                printf("Refreshed");
+
                 setLEDInfo(power, red, green, blue);
             }
             else
@@ -176,8 +290,9 @@ void arrayProcess(void *arg)
                 printf("Invalid array configuration.");
             }
         }
-    };
-}
+    }
+};
+
 void task1(void *arg)
 {
     int rxInt;
