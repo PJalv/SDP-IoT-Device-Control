@@ -1,0 +1,6 @@
+body{
+    background-color: aqua;
+}
+body, html {
+    user-select: none;
+}
