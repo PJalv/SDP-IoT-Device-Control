@@ -10,7 +10,8 @@
 
 <body>
     <h1 id="message">Loading...</h1>
-    <button onclick="publish('led/status/power', 'toggle')">Update Data</button>
+    <button onclick="publish('led/control/power', 'toggle')">Power</button>
+    <button onclick="publish('led/control/color', 'random')">Random Color!</button>
 </body>
 <script src="eel.js"></script>
 <script src="app.js"></script>

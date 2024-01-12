@@ -15,7 +15,7 @@ if not os.path.exists(env_path):
         
 load_dotenv()
 BROKER_ADDRESS = os.getenv("BROKER_ADDRESS")
-BROKER_PORT = os.getenv("BROKER_PORT")
+BROKER_PORT = int(os.getenv("BROKER_PORT"))
 
 
 # Initialize Eel
@@ -37,6 +37,14 @@ def get_external_data():
 def publish_to_mqtt(topic, message):
     mqtt_client.publish(topic, message)
 
+@eel.expose
+def getLEDPower():
+    with open('storage.json', 'r') as file:
+    # Load the JSON data
+        data = json.load(file)
+    print(data["led-device"]["power"])
+        # Retrieve the value associated with the key
+    return int(data["led-device"]["power"])
 
 # Start MQTT client
 mqtt_client.connect(BROKER_ADDRESS, BROKER_PORT)

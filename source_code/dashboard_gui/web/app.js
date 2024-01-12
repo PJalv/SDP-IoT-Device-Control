@@ -13,17 +13,33 @@ async function updateData() {
     }
 }
 
-let powValue = 0;
-
+let powValue = 0, red = 0, green = 0, blue = 0;
 async function publish(topic, message) {
+
     try {
-        powValue = (powValue === 0) ? 1 : 0;
-        console.log(`POWVALUE : ${powValue}`);
-        if (topic === "led/status/power") {
-            await eel.publish_to_mqtt(topic, `INT:${powValue}`)();
-        } else {
-            await eel.publish_to_mqtt(topic, message)();
+        switch (topic) {
+            case "led/control/power":
+                powValue = await eel.getLEDPower()();
+                powValue = (powValue === 0) ? 1 : 0;
+                console.log(`POWVALUE : ${powValue}`);
+                await eel.publish_to_mqtt(topic, `INT:${powValue}`)();
+                break;
+            case "led/control/color":
+                let colorObject = {
+                    red: 0,
+                    green: 0,
+                    blue: 0,
+                }
+                colorObject.red = Math.floor(Math.random() * 256);
+                colorObject.green = Math.floor(Math.random() * 256);
+                colorObject.blue = Math.floor(Math.random() * 256);
+                await eel.publish_to_mqtt(topic, `JSON:${JSON.stringify(colorObject)}`)();
+            default:
+                break;
         }
+
+
+
     } catch (error) {
         console.error('Error publishing data:', error);
     }

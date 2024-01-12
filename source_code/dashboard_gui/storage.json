@@ -1,0 +1,15 @@
+{
+  "fan-device": {
+    "power": 0,
+    "duty_cycle": 0,
+    "rpm": 0
+  },
+  "led-device": {
+    "power": 1,
+    "color": {
+      "red": 38,
+      "green": 237,
+      "blue": 20
+    }
+  }
+}
