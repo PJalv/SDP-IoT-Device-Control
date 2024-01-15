@@ -28,6 +28,9 @@ int red = 0, green = 0, blue = 0, power = 0;
 TickType_t currentInterrupt = 0;
 TickType_t lastInterrupt = 0;
 int timeBetweenPresses;
+
+char stringValue[10];
+
 TickType_t delay = pdMS_TO_TICKS(5);
 struct mqttData isrStruct = {
     .topic = "",
@@ -45,6 +48,26 @@ double generateRandomNumber()
     double randomNumber = (double)(randomValue % 256);
 
     return randomNumber;
+}
+
+void publish_power()
+{
+    char prefix[5] = "INT:";
+    sprintf(stringValue, "%d", (power));
+    publish_state("led/status/power", strcat(prefix, stringValue));
+}
+
+void publish_color_state()
+{
+    cJSON *jsonObject = cJSON_CreateObject();
+
+    cJSON_AddItemToObject(jsonObject, "red", cJSON_CreateNumber(red));
+    cJSON_AddItemToObject(jsonObject, "green", cJSON_CreateNumber(green));
+    cJSON_AddItemToObject(jsonObject, "blue", cJSON_CreateNumber(blue));
+
+    char *colorStr = cJSON_Print(jsonObject);
+    publish_state("led/status/color", colorStr);
+    cJSON_Delete(jsonObject);
 }
 
 static void power_button(void *arg)
@@ -172,7 +195,7 @@ void init()
 
     topicArray subscribeTopics = {
         .topics = {
-            "led/status/power",
+            "led/control/power",
             "led/control/color"},
         .numStrings = 2};
     sendStringArray(&subscribeTopics);
@@ -246,7 +269,9 @@ void arrayProcess(void *arg)
                 default:
                     break;
                 }
-                setLEDInfo(txInt, red, green, blue);
+                setLEDInfo(power, red, green, blue);
+                publish_color_state();
+                publish_power();
                 printf("Data Sent to queue\n");
             }
             else if (temp.jsonPayload.isJson == 1)
@@ -284,6 +309,8 @@ void arrayProcess(void *arg)
                 }
 
                 setLEDInfo(power, red, green, blue);
+                publish_color_state();
+                publish_power();
             }
             else
             {
@@ -293,65 +320,6 @@ void arrayProcess(void *arg)
     }
 };
 
-void task1(void *arg)
-{
-    int rxInt;
-
-    while (1)
-    {
-
-        if (xSemaphoreTake(semaphorePower, portTICK_PERIOD_MS) == pdTRUE)
-        {
-            xQueueReceive(xPowerQueue, &rxInt, portMAX_DELAY);
-            printf("Acting on power semaphore.\n");
-            switch (rxInt)
-            {
-            case 0:
-                led_strip_clear(led_strip);
-                break;
-            case 1:
-                for (int i = 0; i < LED_STRIP_LED_NUMBERS; i++)
-                {
-                    ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, red, green, blue));
-                }
-                ESP_ERROR_CHECK(led_strip_refresh(led_strip));
-                printf("Refreshed");
-            default:
-                break;
-            }
-            setLEDInfo(power, red, green, blue);
-        }
-
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
-}
-void task2(void *arg)
-{
-
-    int rxRGB[3];
-
-    while (1)
-    {
-        if (xSemaphoreTake(semaphoreColor, portTICK_PERIOD_MS) == pdTRUE)
-        {
-            xQueueReceive(xColorQueue, &rxRGB, portMAX_DELAY);
-
-            red = rxRGB[0];
-            green = rxRGB[1];
-            blue = rxRGB[2];
-            for (int i = 0; i < LED_STRIP_LED_NUMBERS; i++)
-            {
-                ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, red, green, blue));
-            }
-            ESP_ERROR_CHECK(led_strip_refresh(led_strip));
-            printf("Refreshed");
-            setLEDInfo(power, red, green, blue);
-        }
-
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
-}
-
 void app_main(void)
 {
     init();
@@ -359,7 +327,5 @@ void app_main(void)
     xTaskCreate(wifiTask, "wifi", 4096, NULL, 10, &wifiTaskHandle);
     vTaskDelay(5000 / portTICK_PERIOD_MS);
     xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
-    // xTaskCreate(task1, "task1", 4096, NULL, 10, &task1Handle);
-    // xTaskCreate(task2, "task2", 4096, NULL, 10, &task2Handle);
     xTaskCreate(arrayProcess, "Event processor", 4096, NULL, 10, &arrayProcessHandle);
 }
