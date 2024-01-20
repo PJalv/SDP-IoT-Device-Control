@@ -19,7 +19,7 @@ BROKER_PORT = int(os.getenv("BROKER_PORT"))
 
 
 # Initialize Eel
-eel.init('web')
+eel.init(f'{os.path.dirname(__file__)}/web')
 
 # Initialize MQTT client
 mqtt_client = mqtt.Client()
@@ -39,7 +39,7 @@ def publish_to_mqtt(topic, message):
 
 @eel.expose
 def getLEDPower():
-    with open('storage.json', 'r') as file:
+    with open(f'{os.path.dirname(__file__)}/storage.json', 'r') as file:
     # Load the JSON data
         data = json.load(file)
     print(data["led-device"]["power"])
@@ -54,7 +54,7 @@ print("Started Loop!")
 
 
 # Start Eel with the HTML file
-eel.start('index.html', block=False)
+eel.start('index.html',size=(800,400),mode='edge', block=False)
 
 while True:
     eel.sleep(1.0)

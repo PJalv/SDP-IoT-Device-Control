@@ -7,9 +7,9 @@
   "led-device": {
     "power": 1,
     "color": {
-      "red": 38,
-      "green": 237,
-      "blue": 20
+      "red": 15,
+      "green": 161,
+      "blue": 17
     }
   }
 }
