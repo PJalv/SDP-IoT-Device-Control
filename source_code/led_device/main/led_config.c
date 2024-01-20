@@ -15,19 +15,25 @@ led_strip_handle_t configure_led(void)
         .led_model = LED_MODEL_WS2812,            // LED strip model
         .flags.invert_out = false,                // whether to invert the output signal
     };
-    led_strip_rmt_config_t rmt_config = {
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
-        .rmt_channel = 0,
-#else
-        .clk_src = RMT_CLK_SRC_DEFAULT,        // different clock source can lead to different power consumption
-        .resolution_hz = LED_STRIP_RMT_RES_HZ, // RMT counter clock frequency
-        .flags.with_dma = false,               // DMA feature is available on ESP target like ESP32-S3
-#endif
-    };
+    //     led_strip_rmt_config_t rmt_config = {
+    // #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
+    //         .rmt_channel = 0,
+    // #else
+    //         .clk_src = RMT_CLK_SRC_DEFAULT,        // different clock source can lead to different power consumption
+    //         .resolution_hz = LED_STRIP_RMT_RES_HZ, // RMT counter clock frequency
+    //         .flags.with_dma = false,               // DMA feature is available on ESP target like ESP32-S3
+    // #endif
+    //     };
 
     // LED Strip object handle
     led_strip_handle_t led_strip;
-    ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip));
-    ESP_LOGI(TAG, "Created LED strip object with RMT backend");
+    // ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &led_strip));
+    // ESP_LOGI(TAG, "Created LED strip object with RMT backend");
+    led_strip_spi_config_t spi_config = {
+        .clk_src = SPI_CLK_SRC_DEFAULT, // different clock source can lead to different power consumption
+        .flags.with_dma = true,         // Using DMA can improve performance and help drive more LEDs
+        .spi_bus = SPI2_HOST,           // SPI bus ID
+    };
+    ESP_ERROR_CHECK(led_strip_new_spi_device(&strip_config, &spi_config, &led_strip));
     return led_strip;
 }

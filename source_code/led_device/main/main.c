@@ -13,25 +13,25 @@
 #include "driver/gpio.h"
 #include "cJSON.h"
 #include "esp_random.h"
-// static const char *TAG = "example";
 
-TaskHandle_t task1Handle = NULL;
-TaskHandle_t task2Handle = NULL;
+#define DEBOUNCE_DELAY pdMS_TO_TICKS(180)
+
 TaskHandle_t arrayProcessHandle = NULL;
+TaskHandle_t currentHandle = NULL;
+
 QueueHandle_t xPowerQueue;
 QueueHandle_t xColorQueue;
 SemaphoreHandle_t semaphorePower;
 SemaphoreHandle_t semaphoreColor;
 led_strip_handle_t led_strip;
 int red = 0, green = 0, blue = 0, power = 0;
-
+int function = 0;
 TickType_t currentInterrupt = 0;
 TickType_t lastInterrupt = 0;
 int timeBetweenPresses;
 
 char stringValue[10];
 
-TickType_t delay = pdMS_TO_TICKS(5);
 struct mqttData isrStruct = {
     .topic = "",
     .integerPayload = {
@@ -50,40 +50,43 @@ double generateRandomNumber()
     return randomNumber;
 }
 
-void publish_power()
+void publish_status()
 {
-    char prefix[5] = "INT:";
-    sprintf(stringValue, "%d", (power));
-    publish_state("led/status/power", strcat(prefix, stringValue));
+    cJSON *ledDeviceObject = cJSON_CreateObject();
+
+    // Add "power" key-value pair to the outer object
+    cJSON_AddItemToObject(ledDeviceObject, "power", cJSON_CreateNumber(power));
+    cJSON_AddItemToObject(ledDeviceObject, "function", cJSON_CreateNumber(function));
+
+    // Create the "color" object
+    cJSON *colorObject = cJSON_CreateObject();
+
+    // Add "red", "green", and "blue" key-value pairs to the "color" object
+    cJSON_AddItemToObject(colorObject, "red", cJSON_CreateNumber(red));
+    cJSON_AddItemToObject(colorObject, "green", cJSON_CreateNumber(green));
+    cJSON_AddItemToObject(colorObject, "blue", cJSON_CreateNumber(blue));
+
+    // Add the "color" object to the outer object
+    cJSON_AddItemToObject(ledDeviceObject, "color", colorObject);
+    char *payload = cJSON_Parse(cJSON_Print(ledDeviceObject));
+    publish_state("led/status/power", payload);
+    cJSON_free(payload);
+    cJSON_Delete(ledDeviceObject);
 }
-
-void publish_color_state()
-{
-    cJSON *jsonObject = cJSON_CreateObject();
-
-    cJSON_AddItemToObject(jsonObject, "red", cJSON_CreateNumber(red));
-    cJSON_AddItemToObject(jsonObject, "green", cJSON_CreateNumber(green));
-    cJSON_AddItemToObject(jsonObject, "blue", cJSON_CreateNumber(blue));
-
-    char *colorStr = cJSON_Print(jsonObject);
-    publish_state("led/status/color", colorStr);
-    cJSON_Delete(jsonObject);
-}
-
+static TickType_t last_interrupt_time = 0;
 static void power_button(void *arg)
 {
     // Read button state
     int button_state = gpio_get_level(12); // Replace BUTTON_GPIO with your button's GPIO
 
     // Variables to track debounce
-    static TickType_t last_interrupt_time = 0;
     TickType_t current_interrupt_time = xTaskGetTickCountFromISR();
     TickType_t time_since_last_interrupt = current_interrupt_time - last_interrupt_time;
 
     if (button_state == 0)
     { // Button pressed (assuming low is pressed)
 
-        if (time_since_last_interrupt > pdMS_TO_TICKS(180) && time_since_last_interrupt != 0)
+        if (time_since_last_interrupt > DEBOUNCE_DELAY && time_since_last_interrupt != 0)
         {
             // Debounced button press detected
             if (power == 1)
@@ -113,14 +116,13 @@ static void change_color(void *arg)
     int button_state = gpio_get_level(14); // Replace BUTTON_GPIO with your button's GPIO
 
     // Variables to track debounce
-    static TickType_t last_interrupt_time = 0;
     TickType_t current_interrupt_time = xTaskGetTickCountFromISR();
     TickType_t time_since_last_interrupt = current_interrupt_time - last_interrupt_time;
 
     if (button_state == 0)
     { // Button pressed (assuming low is pressed)
 
-        if (time_since_last_interrupt > pdMS_TO_TICKS(180) && time_since_last_interrupt != 0)
+        if (time_since_last_interrupt > DEBOUNCE_DELAY && time_since_last_interrupt != 0)
         {
             // Debounced button press detected
             cJSON *root = cJSON_CreateObject();
@@ -142,6 +144,30 @@ static void change_color(void *arg)
         }
 
         last_interrupt_time = current_interrupt_time;
+    }
+}
+
+void rainbow_effect(void *arg)
+{
+    const TickType_t delay = 10 / portTICK_PERIOD_MS;
+
+    while (1)
+    {
+        // Iterate through the LED strip pixels
+        for (uint32_t i = 0; i < LED_STRIP_LED_NUMBERS; i++)
+        {
+            // Calculate hue based on the pixel index and a time variable
+            uint16_t hue = ((i * 360) / LED_STRIP_LED_NUMBERS + (pdTICKS_TO_MS(xTaskGetTickCount()) / (int)(arg))) % 360;
+
+            // Set the pixel color using the HSV values
+            led_strip_set_pixel_hsv(led_strip, i, hue, 255, 255);
+        }
+
+        // Update the LED strip to apply the changes
+        ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+
+        // Introduce a delay for the trailing effect
+        vTaskDelay(delay);
     }
 }
 
@@ -169,8 +195,8 @@ void init()
     xColorQueue = xQueueCreate(5, 3 * sizeof(int));
     xPowerQueue = xQueueCreate(5, sizeof(int));
 
-    getLEDInfo(&power, &red, &green, &blue);
-    if (red == 0)
+    getLEDInfo(&power, &function, &red, &green, &blue);
+    if (red == 0 && green == 0 && blue == 0)
     {
         red = green = blue = 255;
     }
@@ -182,16 +208,32 @@ void init()
         led_strip_clear(led_strip);
         break;
     case 1:
-        for (int i = 0; i < LED_STRIP_LED_NUMBERS; i++)
+        if (function != 0)
         {
-            ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, red, green, blue));
+            printf("Retrieving function...\n");
+            switch (function)
+            {
+            case 1:
+                xTaskCreate(rainbow_effect, "rainbow Effect", 1024, (void *)10, 8, &currentHandle);
+                break;
+
+            default:
+                break;
+            }
+        } // add more for more efefcts
+        else
+        {
+            for (int i = 0; i < LED_STRIP_LED_NUMBERS; i++)
+            {
+                ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, red, green, blue));
+            }
+            /* Refresh the strip to send data */
+            ESP_ERROR_CHECK(led_strip_refresh(led_strip));
         }
-        /* Refresh the strip to send data */
-        ESP_ERROR_CHECK(led_strip_refresh(led_strip));
     default:
         break;
     }
-    setLEDInfo(power, red, green, blue);
+    setLEDInfo(power, function, red, green, blue);
 
     topicArray subscribeTopics = {
         .topics = {
@@ -204,11 +246,9 @@ void init()
     gpio_set_direction(12, GPIO_MODE_INPUT);
     gpio_set_pull_mode(12, GPIO_PULLUP_ONLY);
     gpio_set_intr_type(12, GPIO_INTR_NEGEDGE);
-    gpio_isr_handler_add(12, power_button, NULL);
     gpio_set_direction(14, GPIO_MODE_INPUT);
     gpio_set_pull_mode(14, GPIO_PULLUP_ONLY);
     gpio_set_intr_type(14, GPIO_INTR_NEGEDGE);
-    gpio_isr_handler_add(14, change_color, NULL);
 }
 void wifiTask(void *arg)
 {
@@ -240,8 +280,18 @@ void arrayProcess(void *arg)
     printf("Waiting for data event...\n");
     while (1)
     {
+
         if (xSemaphoreTake(dataSemaphore, portTICK_PERIOD_MS) == pdTRUE)
         {
+            if (currentHandle != NULL)
+            {
+                printf("TASK DELETED\n");
+                vTaskDelete(currentHandle);
+                currentHandle = NULL;
+                printf("AFTER TASK DELETED\n");
+                // led_strip_del(led_strip);
+                // continue;
+            }
             printf("IN MAIN FUNCTION FOR POPPING.\n");
             temp = pop();
             if (temp.integerPayload.isInteger == 1)
@@ -269,48 +319,62 @@ void arrayProcess(void *arg)
                 default:
                     break;
                 }
-                setLEDInfo(power, red, green, blue);
-                publish_color_state();
-                publish_power();
+                setLEDInfo(power, function, red, green, blue);
+                publish_status();
                 printf("Data Sent to queue\n");
             }
             else if (temp.jsonPayload.isJson == 1)
             {
+
                 cJSON *root = cJSON_Parse(temp.jsonPayload.jsonData);
                 if (root == NULL)
                 {
                     printf("Error parsing JSON: %s\n", cJSON_GetErrorPtr());
                 }
-                cJSON *red_obj = cJSON_GetObjectItem(root, "red");
-                cJSON *green_obj = cJSON_GetObjectItem(root, "green");
-                cJSON *blue_obj = cJSON_GetObjectItem(root, "blue");
-                if (red_obj == NULL || green_obj == NULL || blue_obj == NULL)
-                {
-                    printf("Error getting JSON values\n");
-                    cJSON_Delete(root);
-                }
-                red = red_obj->valueint;
-                green = green_obj->valueint;
-                blue = blue_obj->valueint;
-                printf("Red: %d\n", red);
-                printf("Green: %d\n", green);
-                printf("Blue: %d\n", blue);
-                cJSON_Delete(root);
-                if (power != 0)
-                {
+                cJSON *functionItem = cJSON_GetObjectItem(root, "function");
 
-                    // xQueueSend(xColorQueue, &txRGB, portMAX_DELAY);
-                    // xSemaphoreGive(semaphoreColor);
-                    for (int i = 0; i < LED_STRIP_LED_NUMBERS; i++)
+                if (functionItem != NULL)
+                {
+                    switch (functionItem->valueint)
                     {
-                        ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, red, green, blue));
+                    case 1:
+                        function = 1;
+                        xTaskCreate(rainbow_effect, "rainbow Effect", 1024, (void *)10, 8, &currentHandle);
+                        break;
+
+                    default:
+                        break;
                     }
-                    ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+                }
+                else
+                {
+                    cJSON *red_obj = cJSON_GetObjectItem(root, "red");
+                    cJSON *green_obj = cJSON_GetObjectItem(root, "green");
+                    cJSON *blue_obj = cJSON_GetObjectItem(root, "blue");
+                    if (red_obj == NULL || green_obj == NULL || blue_obj == NULL)
+                    {
+                        printf("Error getting JSON values\n");
+                        cJSON_Delete(root);
+                    }
+                    red = red_obj->valueint;
+                    green = green_obj->valueint;
+                    blue = blue_obj->valueint;
+                    printf("Red: %d\n", red);
+                    printf("Green: %d\n", green);
+                    printf("Blue: %d\n", blue);
+                    cJSON_Delete(root);
+                    if (power != 0)
+                    {
+                        for (int i = 0; i < LED_STRIP_LED_NUMBERS; i++)
+                        {
+                            ESP_ERROR_CHECK(led_strip_set_pixel(led_strip, i, red, green, blue));
+                        }
+                        ESP_ERROR_CHECK(led_strip_refresh(led_strip));
+                    }
                 }
 
-                setLEDInfo(power, red, green, blue);
-                publish_color_state();
-                publish_power();
+                setLEDInfo(power, function, red, green, blue);
+                publish_status();
             }
             else
             {
@@ -328,4 +392,6 @@ void app_main(void)
     vTaskDelay(5000 / portTICK_PERIOD_MS);
     xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
     xTaskCreate(arrayProcess, "Event processor", 4096, NULL, 10, &arrayProcessHandle);
+    gpio_isr_handler_add(14, change_color, NULL);
+    gpio_isr_handler_add(12, power_button, NULL);
 }

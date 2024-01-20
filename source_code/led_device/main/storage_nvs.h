@@ -10,7 +10,7 @@
 #define GREEN_KEY "GREEN"
 #define BLUE_KEY "BLUE"
 // Function prototypes
-void setLEDInfo(int power, int red, int green, int blue);
-void getLEDInfo(int *power, int *red, int *green, int *blue);
+void setLEDInfo(int power, int function, int red, int green, int blue);
+void getLEDInfo(int *power, int *function, int *red, int *green, int *blue);
 
 #endif /* FAN_NVS_H */

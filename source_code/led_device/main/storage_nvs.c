@@ -7,8 +7,9 @@
 #define RED_KEY "RED"
 #define GREEN_KEY "GREEN"
 #define BLUE_KEY "BLUE"
+#define FUNCTION_KEY "function"
 
-void setLEDInfo(int power, int red, int green, int blue)
+void setLEDInfo(int power, int function, int red, int green, int blue)
 {
     // Initialize NVS
     esp_err_t err = nvs_flash_init();
@@ -37,7 +38,15 @@ void setLEDInfo(int power, int red, int green, int blue)
     {
         printf("Power value stored in NVS: %d\n", power);
     }
-
+    err = nvs_set_i32(my_handle, FUNCTION_KEY, function);
+    if (err != ESP_OK)
+    {
+        printf("Error (%s) setting function value to NVS!\n", esp_err_to_name(err));
+    }
+    else
+    {
+        printf("Function value stored in NVS: %d\n", function);
+    }
     err |= nvs_set_i32(my_handle, RED_KEY, red);
     if (err != ESP_OK)
     {
@@ -82,7 +91,7 @@ void setLEDInfo(int power, int red, int green, int blue)
     nvs_close(my_handle);
 }
 
-void getLEDInfo(int *power, int *red, int *green, int *blue)
+void getLEDInfo(int *power, char **function, int *red, int *green, int *blue)
 {
     nvs_handle_t my_handle;
     // Open NVS namespace
@@ -102,6 +111,15 @@ void getLEDInfo(int *power, int *red, int *green, int *blue)
     else
     {
         printf("Power value retrieved from NVS: %d\n", *power);
+    }
+    err = nvs_get_i32(my_handle, FUNCTION_KEY, function);
+    if (err != ESP_OK)
+    {
+        printf("Error (%s) getting function value from NVS!\n", esp_err_to_name(err));
+    }
+    else
+    {
+        printf("Function value retrieved from NVS: %d\n", *power);
     }
 
     err = nvs_get_i32(my_handle, RED_KEY, red);
