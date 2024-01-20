@@ -34,20 +34,16 @@ def update_json_file():
 
     file_path = "storage.json"
     if os.path.exists(file_path):
-        # Load existing data from the file
-        with open(file_path, 'r') as file:
-            existing_data = json.load(file)
-
-        # Update the existing data with the new values
-        for key, value in update_values.items():
-            if key in existing_data:
-                existing_data[key].update(value)
-
-        # Save the updated data back to the file
-        with open(file_path, 'w') as file:
-            json.dump(existing_data, file, indent=2)
-            
-        print(f"Updated values in {file_path}")
+        try:
+            with open(file_path, 'r+') as file:
+                existing_data = json.load(file)
+                existing_data.update(update_values)
+                file.seek(0)  # Move to the beginning of the file
+                json.dump(existing_data, file, indent=2)
+                file.truncate()  # Truncate the file to remove any remaining content
+                # print(f"Updated values in {file_path}")
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON: {e}")
     else:
         print(f"File not found: {file_path}")
     
