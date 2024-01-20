@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -13,8 +14,8 @@
 
     <!-- Bootstrap Icons CSS CDN (optional, if you're using icons) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.17.0/font/bootstrap-icons.css">
-    
-    
+
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -33,17 +34,20 @@
 
         .device-card {
             margin: 10px auto;
-            max-width: 18rem; /* Adjusted max-width to fit the card content */
+            max-width: 18rem;
+            /* Adjusted max-width to fit the card content */
             width: 100%;
         }
 
         .device-image {
             max-width: 100%;
             height: auto;
-            border-radius: 5px 5px 0 0; /* Rounded top corners */
+            border-radius: 5px 5px 0 0;
+            /* Rounded top corners */
         }
     </style>
 </head>
+
 <body>
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top shadow-lg" style="padding: 0.2rem 0.2rem;">
@@ -69,39 +73,50 @@
             </div>
         </div>
     </nav>
-    
+
     <p class="text-center text-white font-weight-bold display-5">Dashboard</p>
     <div class="container">
         <div class="row justify-content-between">
             <div class="col-md-6">
                 <div class="card device-card shadow" id="fan-device">
-                    
+
                     <div class="card-body" style="height: 200px;">
-                        <h5 class="card-title" style="font-size: 18px; color: #007ca5; font-weight: bold;">Fan Device</h5>
+                        <h5 class="card-title" style="font-size: 18px; color: #007ca5; font-weight: bold;">Fan Device
+                        </h5>
                         <div class="col-md-4">
-                    
-                    
-                </div>
-                <div class="row d-flex justify-content-center align-items-center mr-3 ml-1 ">
-                    <button type="button" class="btn btn-primary btn-square btn-lg d-flex align-items-center justify-content-center" id="fan-toggle" style="width: 50px; height: 50px;">
-                        <img src="powericon.png" alt="Button Image" class="button-img" style="width: 30px; height: 30px;">
-                    </button>
-                    <img src="FanIcon.png" alt="Fan Image" class="card-img-top device-image p-0 mx-auto d-block" style="width: 80px; height: 80px;">
-                    <button type="button" class="btn btn-primary btn-square btn-lg d-flex align-items-center justify-content-center" id="fan-toggle" style="width: 50px; height: 50px;" onclick="openFanSettings()">
-                        <img src="settings icon.png" alt="Button Image" class="button-img" style="width: 50px; height: 50px;">
-                    </button>
-                    
-                </div>
-      
+
+
+                        </div>
+                        <div class="row d-flex justify-content-center align-items-center mr-3 ml-1 ">
+                            <button type="button"
+                                class="btn btn-primary btn-square btn-lg d-flex align-items-center justify-content-center"
+                                id="fan-toggle" style="width: 50px; height: 50px;">
+                                <img src="powericon.png" alt="Button Image" class="button-img"
+                                    style="width: 30px; height: 30px;">
+                            </button>
+                            <img src="FanIcon.png" alt="Fan Image" class="card-img-top device-image p-0 mx-auto d-block"
+                                style="width: 80px; height: 80px;">
+                            <button type="button"
+                                class="btn btn-primary btn-square btn-lg d-flex align-items-center justify-content-center"
+                                id="fan-toggle" style="width: 50px; height: 50px;" onclick="openFanSettings()">
+                                <img src="settings icon.png" alt="Button Image" class="button-img"
+                                    style="width: 50px; height: 50px;">
+                            </button>
+
+                        </div>
+
                         <div class="row">
                             <div class="col-md-4 text-center">
-                                <p class="lead" style="font-size: 14px; color: #007ca5;">Power: <span id="fan-power">Loading...</span></p>
+                                <p class="lead" style="font-size: 14px; color: #007ca5;">Power: <span
+                                        id="fan-power">Loading...</span></p>
                             </div>
                             <div class="col-md-4 text-center">
-                                <p class="lead" style="font-size: 14px; color: #007ca5;">Duty Cycle: <span id="fan-duty-cycle">Loading...</span></p>
+                                <p class="lead" style="font-size: 14px; color: #007ca5;">Duty Cycle: <span
+                                        id="fan-duty-cycle">Loading...</span></p>
                             </div>
                             <div class="col-md-4 text-center">
-                                <p class="lead" style="font-size: 14px; color: #007ca5;">RPM: <span id="fan-rpm">Loading...</span></p>
+                                <p class="lead" style="font-size: 14px; color: #007ca5;">RPM: <span
+                                        id="fan-rpm">Loading...</span></p>
                             </div>
                         </div>
                     </div>
@@ -111,14 +126,18 @@
             <div class="col-md-6">
                 <div class="card device-card shadow" id="led-device">
                     <div class="card-body" style="height: 200px;">
-                        <h5 class="card-title" style="font-size: 18px; color: #007ca5; font-weight: bold;">LED Device</h5>
-                        <img src="LedIcon.png" alt="LED Image" class="card-img-top device-image mx-auto d-block" style="width: 75px; height: 75px;">
+                        <h5 class="card-title" style="font-size: 18px; color: #007ca5; font-weight: bold;">LED Device
+                        </h5>
+                        <img src="LedIcon.png" alt="LED Image" class="card-img-top device-image mx-auto d-block"
+                            style="width: 75px; height: 75px;">
                         <div class="row justify-content-center">
                             <div class="col-md-4 text-center">
-                                <p class="lead" style="font-size: 14px; color: #007ca5;">Power: <span id="led-power">Loading...</span></p>
+                                <p class="lead" style="font-size: 14px; color: #007ca5;">Power: <span
+                                        id="led-power">Loading...</span></p>
                             </div>
                             <div class="col-md-4 text-center">
-                                <p class="lead" style="font-size: 14px; color: #007ca5;">Color: <span id="led-color">Loading...</span></p>
+                                <p class="lead" style="font-size: 14px; color: #007ca5;">Color: <span
+                                        id="led-color">Loading...</span></p>
                             </div>
                         </div>
                     </div>
@@ -140,6 +159,7 @@
 
     <!-- Include Eel JS -->
     <script src="/eel.js"></script>
+    <script src="app.js"></script>
 
     <script>
         // JavaScript code goes here
@@ -161,4 +181,5 @@
         }, 1000);
     </script>
 </body>
+
 </html>
