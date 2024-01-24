@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LED Settings</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-image: url('IndexBackground.png');
+            /* Replace with the path or URL of your dashboard background image */
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        .led-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 80%;
+        }
+
+        .led-image {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .settings-card {
+            width: 40%;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Customize the navbar style */
+        .navbar {
+            background-color: #333;
+            color: #fff;
+        }
+
+        /* Add margin to the "Back to Dashboard" link */
+        .back-link {
+            margin-left: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top shadow-lg" style="padding: 1.2rem 1.2rem;">
+        <div class="container">
+            <!-- Navbar links -->
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.html">Back to Dashboard</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- LED Settings Content -->
+    <div class="led-container">
+        <img src="LedIcon.png" alt="LED Image" class="led-image" style="width: 200px; height: 200px;">
+        <div class="settings-card" style="height: 350px;">
+
+            <form>
+                <div class="mb-3">
+                    <label for="ledColorPicker" class="form-label">LED Color</label>
+                    <input type="color" class="form-control form-control-color" id="ledColorPicker">
+                </div>
+                <div class="mb-3">
+                    <label for="ledBrightnessBar" class="form-label">LED Brightness</label>
+                    <input type="range" class="form-range" id="ledBrightnessBar" min="0" max="100" step="1">
+                </div>
+                <div class="mb-3">
+                    <label for="ledLightFunction" class="form-label">LED Light Function</label>
+                    <select class="form-select" id="ledLightFunction">
+                        <option value="static">Static</option>
+                        <option value="rainbow">Rainbow</option>
+                        <option value="trailing-rainbow">Trailing Rainbow</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Apply Settings</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="eel.js"></script>
+    <script src="app.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
