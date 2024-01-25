@@ -66,7 +66,7 @@ mqtt_client.loop_start()
 
 
 # Start Eel with the HTML file
-eel.start('index.html', mode='edge', block=False)
+eel.start('html/index.html', mode='edge', block=False)
 
 while True:
     eel.sleep(1.0)

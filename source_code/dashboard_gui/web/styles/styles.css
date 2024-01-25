@@ -1,6 +1,59 @@
-body{
-    background-color: aqua;
+body {
+    font-family: Arial, sans-serif;
+    background-image: url('../img/IndexBackground.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
 }
-body, html {
-    user-select: none;
+
+.fan-container,
+.led-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 80%;
+}
+
+.fan-image,
+.led-image,
+.device-image {
+    max-width: 100%;
+    height: auto;
+}
+
+.settings-card,
+.device-card {
+    width: 40%;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+.navbar {
+    background-color: #333;
+    color: #fff;
+}
+
+.back-link {
+    margin-left: 10px;
+}
+
+.device-card {
+    margin: 10px auto;
+    max-width: 18rem;
+    width: 100%;
+    /* Adjusted max-width to fit the card content */
+}
+
+.device-image {
+    border-radius: 5px 5px 0 0;
+    /* Rounded top corners */
 }
