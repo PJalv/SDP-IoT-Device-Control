@@ -10,13 +10,16 @@ env_path = os.path.join(os.path.dirname(__file__), '.env')
 
 if not os.path.exists(env_path):
     with open(env_path, 'w') as env_file:
-        env_file.write("BROKER_ADDRESS=your_default_broker_address\n")
-        env_file.write("BROKER_PORT=your_default_broker_port\n")
+        env_file.write("BROKER_ADDRESS=\n")
+        env_file.write("BROKER_PORT=\n")
         
         
 load_dotenv()
-BROKER_ADDRESS = os.getenv("BROKER_ADDRESS")
-BROKER_PORT = int(os.getenv("BROKER_PORT"))
+try:    
+    BROKER_ADDRESS = os.getenv("BROKER_ADDRESS")
+    BROKER_PORT = int(os.getenv("BROKER_PORT"))
+except:
+    print("Error")
 
 
 # Initialize Eel
@@ -43,10 +46,17 @@ def publish_to_mqtt(topic, message):
     mqtt_client.publish(topic, message)
     print(f"SENT {message} to {topic}")
 
+@eel.expose
+def getBrokerParams():
+    params = [BROKER_ADDRESS, BROKER_PORT]
+    return params
 
 @eel.expose
 def getBrokerStatus():
-    return mqtt_client.is_connected()
+    global status
+    status = mqtt_client.is_connected()
+    eel.sleep(0.1)
+    return status
 
 @eel.expose
 def getIP():
@@ -59,17 +69,31 @@ def getIP():
         return None
 
 @eel.expose
+def saveBrokerParams(params):
+    global BROKER_ADDRESS, BROKER_PORT  # Declare them as global
+
+    with open(env_path, 'w') as env_file:
+        env_file.write(f"BROKER_ADDRESS={params[0]}\n")
+        env_file.write(f"BROKER_PORT={params[1]}\n")
+        
+    # Update the global variables
+    BROKER_ADDRESS = params[0]
+    BROKER_PORT = int(params[1])
+
+    
+@eel.expose
 def mqtt_connect():
     try:
+        print(BROKER_ADDRESS)
         mqtt_client.connect(BROKER_ADDRESS, BROKER_PORT)
         mqtt_client.loop_start()
-        print("Connected successfully")
         eel.sleep(2.0)
+        print("Connected successfully")
         return "success"
     
     except Exception as e:
         print(f"Could not connect: {e}")
-        eel.sleep(2.0)
+        # eel.sleep(2.0)
         return "error"
 
 
