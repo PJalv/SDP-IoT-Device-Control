@@ -1,6 +1,7 @@
 import eel
 import random
 import json
+import socket
 import paho.mqtt.client as mqtt
 from dotenv import load_dotenv
 import os
@@ -36,32 +37,40 @@ def read_storage():
         print(f"Error: {e}")
         return None
 
-@eel.expose
-def get_random_data():
-    return f"Random Number: {random.randint(1, 100)}"
-
-@eel.expose
-def get_external_data():
-    external_data = {"value": random.randint(1, 100)}
-    return json.dumps(external_data)
 
 @eel.expose
 def publish_to_mqtt(topic, message):
     mqtt_client.publish(topic, message)
     print(f"SENT {message} to {topic}")
 
-@eel.expose
-def getLEDPower():
-    with open('storage.json', 'r') as file:
-    # Load the JSON data
-        data = json.load(file)
-    print(data["led-device"]["power"])
-        # Retrieve the value associated with the key
-    return int(data["led-device"]["power"])
 
-# Start MQTT client
-mqtt_client.connect(BROKER_ADDRESS, BROKER_PORT)
-mqtt_client.loop_start()
+@eel.expose
+def getBrokerStatus():
+    return mqtt_client.is_connected()
+
+@eel.expose
+def getIP():
+    try:
+        # Get the local IP address
+        local_ip = socket.gethostbyname(socket.gethostname())
+        return local_ip
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
+@eel.expose
+def mqtt_connect():
+    try:
+        mqtt_client.connect(BROKER_ADDRESS, BROKER_PORT)
+        mqtt_client.loop_start()
+        print("Connected successfully")
+        eel.sleep(2.0)
+        return "success"
+    
+    except Exception as e:
+        print(f"Could not connect: {e}")
+        eel.sleep(2.0)
+        return "error"
 
 
 
@@ -70,4 +79,5 @@ eel.start('html/index.html', mode='edge', block=False)
 
 while True:
     eel.sleep(1.0)
+    
 

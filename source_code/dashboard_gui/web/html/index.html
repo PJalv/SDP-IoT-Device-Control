@@ -20,30 +20,20 @@
 <body>
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top shadow-lg" style="padding: 0.2rem 0.2rem;">
-        <div class="container">
+        <div id="navbar-list" class="container">
             <!-- Brand/logo -->
             <a class="navbar-brand" href="#">Your Hub Name</a>
 
             <!-- IP and Status in Top Left -->
-            <div class="navbar-text">
-                IP: <span id="hub-ip">Your IP</span> | Status: <span id="hub-status">Online</span>
+            <div id="navbar" class="navbar-text">
+                IP: <span id="hub-ip">Your IP</span> | Status: <span id="hub-status">Connecting...</span>
             </div>
 
-            <!-- Navbar links -->
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav mx-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">Settings <i class="bi bi-gear"></i></a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">Tasks/Locations</a>
-                    </li>
-                </ul>
-            </div>
+
         </div>
     </nav>
 
-    <p class="text-center text-white font-weight-bold display-5">Dashboard</p>
+    <p class="text-center text-white font-weight-bold display-5 mt-4">Dashboard</p>
     <div class="container">
         <div class="row justify-content-between">
             <div class="col-md-6">
@@ -152,11 +142,7 @@
     <script src="/eel.js"></script>
     <script src="../JS/app.js"></script>
 
-    <script>
-        // JavaScript code goes here
-        // Function to update device information
 
-    </script>
 </body>
 
 </html>

@@ -1,30 +1,5 @@
 document.body.style.userSelect = 'none';
 
-async function mqtt_connect() {
-    await eel.mqtt_connect()();
-    await getIP();
-    await getBrokerStatus();
-}
-
-async function getIP() {
-    const ipaddr = await eel.getIP()();
-    console.log(ipaddr);
-    ipAddressElement = document.querySelector("#hub-ip").innerText = ipaddr;
-
-}
-async function getBrokerStatus() {
-    const status = await eel.getBrokerStatus()();
-    if (status) {
-        statusElement = document.querySelector("#hub-status").innerText = "Online";
-    } else {
-        statusElement = document.querySelector("#hub-status").innerText = "Offline";
-        navbar = document.getElementById('navbar-list');
-        let node = document.createElement('a');
-        node.onclick = async function () {
-            await eel.mqtt_connect()();
-        }
-    }
-}
 
 async function updateData() {
     // console.log("Enter update");
@@ -61,9 +36,68 @@ async function publish(topic, message) {
         console.error('Error publishing data:', error);
     }
 }
-document.addEventListener('DOMContentLoaded', async function () {
-    await mqtt_connect();
+let rgbArray;
+document.addEventListener('DOMContentLoaded', function () {
+    let colorPicker = document.getElementById('ledColorPicker');
+    let rgbValuesElement = document.getElementById('rgbValues');
+
+    colorPicker.addEventListener('input', function (event) {
+        // Get the RGB values from the color picker
+        rgbArray = hexToRgb(event.target.value);
+
+        // Display the RGB values
+    });
+
+    // Function to convert hex color to RGB
+    function hexToRgb(hex) {
+        // Remove the hash character if present
+        hex = hex.replace(/^#/, '');
+
+        // Parse the hex values to RGB
+        var bigint = parseInt(hex, 16);
+        var r = (bigint >> 16) & 255;
+        var g = (bigint >> 8) & 255;
+        var b = bigint & 255;
+        return [r, g, b];
+    }
+
 });
+var dropdown = document.getElementById('ledLightFunction');
+let selectedValue = 0;
+dropdown.addEventListener('change', function () {
+    // Get the selected value from the dropdown
+    selectedValue = dropdown.value;
+
+    // Display or use the selected value as needed
+    console.log("Selected value: " + selectedValue);
+});
+
+
+document.getElementById("btn-submit").addEventListener("click", async function () {
+    console.log("Enter submit");
+    let topic, message;
+    switch (selectedValue) {
+        case 0:
+            topic = 'led/control/color';
+            const colorObject = {
+                red: rgbArray[0],
+                green: rgbArray[1],
+                blue: rgbArray[2],
+            };
+            message = `JSON:${JSON.stringify(colorObject)}`
+            break;
+        case 1:
+            //set topic and message for 
+            break;
+        case 2:
+            break;
+        case 3:
+            break;
+        default:
+            break;
+    }
+    await eel.publish_to_mqtt(topic, message)();
+})
 setInterval(async () => {
     // console.log("enter loop");
     const data = await updateData();
