@@ -17,12 +17,13 @@
 #define DEBOUNCE_DELAY pdMS_TO_TICKS(180)
 
 TaskHandle_t arrayProcessHandle = NULL;
+TaskHandle_t heartbeatHandle = NULL;
 TaskHandle_t currentHandle = NULL;
 
 QueueHandle_t xPowerQueue;
 QueueHandle_t xColorQueue;
 SemaphoreHandle_t semaphorePower;
-SemaphoreHandle_t semaphoreColor;
+SemaphoreHandle_t terminationSemaphore;
 led_strip_handle_t led_strip;
 int red = 0, green = 0, blue = 0, power = 0;
 int function = 0;
@@ -68,8 +69,8 @@ void publish_status()
 
     // Add the "color" object to the outer object
     cJSON_AddItemToObject(ledDeviceObject, "color", colorObject);
-    char *payload = cJSON_Parse(cJSON_Print(ledDeviceObject));
-    publish_state("led/status/power", payload);
+    char *payload = cJSON_Print(ledDeviceObject);
+    publish_state("led/status", payload);
     cJSON_free(payload);
     cJSON_Delete(ledDeviceObject);
 }
@@ -147,12 +148,16 @@ static void change_color(void *arg)
     }
 }
 
-void rainbow_effect(void *arg)
+void trailing_rainbow(void *arg)
 {
     const TickType_t delay = 10 / portTICK_PERIOD_MS;
 
     while (1)
     {
+        if (xSemaphoreTake(terminationSemaphore, 0) == pdTRUE)
+        {
+            break; // Terminate the task
+        }
         // Iterate through the LED strip pixels
         for (uint32_t i = 0; i < LED_STRIP_LED_NUMBERS; i++)
         {
@@ -164,25 +169,51 @@ void rainbow_effect(void *arg)
         }
 
         // Update the LED strip to apply the changes
-        ESP_ERROR_CHECK(led_strip_refresh(led_strip));
-
+        if (led_strip_refresh(led_strip) != ESP_OK)
+        {
+            continue;
+        }
         // Introduce a delay for the trailing effect
         vTaskDelay(delay);
     }
+    vTaskDelete(NULL);
+}
+
+void static_rainbow(void *arg)
+{
+    const TickType_t delay = 10 / portTICK_PERIOD_MS;
+    while (1)
+    {
+        if (xSemaphoreTake(terminationSemaphore, 0) == pdTRUE)
+        {
+            break; // Terminate the task
+        }
+
+        // Calculate hue based on time
+        uint16_t hue = (pdTICKS_TO_MS(xTaskGetTickCount()) / (int)(arg)) % 360;
+
+        // Set the same color for all LEDs using the HSV values
+        for (uint32_t i = 0; i < LED_STRIP_LED_NUMBERS; i++)
+        {
+            led_strip_set_pixel_hsv(led_strip, i, hue, 255, 255);
+        }
+
+        // Update the LED strip to apply the changes
+        if (led_strip_refresh(led_strip) != ESP_OK)
+        {
+            continue;
+        }
+        vTaskDelay(delay);
+        // Introduce a delay for the trailing effect
+        // vTaskDelay(delay);
+    }
+
+    vTaskDelete(NULL);
 }
 
 void init()
 {
     nvs_flash_init();
-    semaphoreColor = xSemaphoreCreateBinary();
-
-    if (semaphoreColor == NULL)
-    {
-    }
-    else
-    {
-        printf("Semaphore Active!");
-    }
     semaphorePower = xSemaphoreCreateBinary();
 
     if (semaphorePower == NULL)
@@ -200,7 +231,13 @@ void init()
     {
         red = green = blue = 255;
     }
+    terminationSemaphore = xSemaphoreCreateBinary();
 
+    if (terminationSemaphore == NULL)
+    {
+        /* There was insufficient FreeRTOS heap available for the semaphore to
+        be created successfully. */
+    }
     led_strip = configure_led();
     switch (power)
     {
@@ -214,9 +251,11 @@ void init()
             switch (function)
             {
             case 1:
-                xTaskCreate(rainbow_effect, "rainbow Effect", 1024, (void *)10, 8, &currentHandle);
+                xTaskCreate(static_rainbow, "static rainbow Effect", 1024, (void *)10, 8, &currentHandle);
                 break;
-
+            case 2:
+                xTaskCreate(trailing_rainbow, "trailing rainbow Effect", 1024, (void *)10, 8, &currentHandle);
+                break;
             default:
                 break;
             }
@@ -268,6 +307,14 @@ void mqttTask(void *arg)
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
+void heartbeat(void *arg)
+{
+    while (1)
+    {
+        publish_state("device_heartbeat", "led");
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+    }
+}
 void arrayProcess(void *arg)
 {
     int txInt;
@@ -286,8 +333,14 @@ void arrayProcess(void *arg)
             if (currentHandle != NULL)
             {
                 printf("TASK DELETED\n");
-                vTaskDelete(currentHandle);
+                xSemaphoreGive(terminationSemaphore);
                 currentHandle = NULL;
+
+                while (led_strip_del(led_strip) != ESP_OK)
+                {
+                    vTaskDelay(50 / portTICK_PERIOD_MS);
+                }
+                led_strip = configure_led();
                 printf("AFTER TASK DELETED\n");
                 // led_strip_del(led_strip);
                 // continue;
@@ -339,9 +392,12 @@ void arrayProcess(void *arg)
                     {
                     case 1:
                         function = 1;
-                        xTaskCreate(rainbow_effect, "rainbow Effect", 1024, (void *)10, 8, &currentHandle);
+                        xTaskCreate(static_rainbow, "rainbow Effect", 1024, (void *)10, 8, &currentHandle);
                         break;
-
+                    case 2:
+                        function = 2;
+                        xTaskCreate(trailing_rainbow, "trailing rainbow Effect", 1024, (void *)10, 8, &currentHandle);
+                        break;
                     default:
                         break;
                     }
@@ -372,7 +428,7 @@ void arrayProcess(void *arg)
                         ESP_ERROR_CHECK(led_strip_refresh(led_strip));
                     }
                 }
-
+                function = 0;
                 setLEDInfo(power, function, red, green, blue);
                 publish_status();
             }
@@ -387,11 +443,12 @@ void arrayProcess(void *arg)
 void app_main(void)
 {
     init();
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
     xTaskCreate(wifiTask, "wifi", 4096, NULL, 10, &wifiTaskHandle);
     vTaskDelay(5000 / portTICK_PERIOD_MS);
     xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
     xTaskCreate(arrayProcess, "Event processor", 4096, NULL, 10, &arrayProcessHandle);
+    xTaskCreate(heartbeat, "Heartbeat", 4096, NULL, 10, &heartbeatHandle);
     gpio_isr_handler_add(14, change_color, NULL);
     gpio_isr_handler_add(12, power_button, NULL);
 }
