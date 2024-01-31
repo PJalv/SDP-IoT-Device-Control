@@ -61,3 +61,25 @@ body {
     border-radius: 5px 5px 0 0;
     /* Rounded top corners */
 }
+
+.gray-out {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    /* Adjust the last value for transparency */
+    z-index: 1;
+    /* Ensure the overlay is on top of the content */
+}
+
+/* Adjust the style for the card to make it visually stand out */ 
+/* .card.device-card {
+    position: relative;
+    /* Make it a positioned container for the overlay */
+    /* z-index: 2; */
+    /* Ensure the card content is on top of the overlay */
+    /* pointer-events: none; */
+    /* Allow click-through to the elements beneath the overlay */
+    /* Ensure the card content is on top of the overlay */

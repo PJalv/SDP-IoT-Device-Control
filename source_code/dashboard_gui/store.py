@@ -2,6 +2,7 @@ import paho.mqtt.client as mqtt
 from dotenv import load_dotenv
 import os
 import json
+import time
 env_path = os.path.join(os.path.dirname(__file__), '.env')
 
 if not os.path.exists(env_path):
@@ -13,25 +14,34 @@ if not os.path.exists(env_path):
 load_dotenv()
 BROKER_ADDRESS = os.getenv("BROKER_ADDRESS")
 BROKER_PORT = int(os.getenv("BROKER_PORT"))
-topics = ["led/status/power", "led/status/color"]
+topics = ["led/status", "led/status/color", "device_heartbeat"]
 
 update_values = {
-    "fan-device": {
-        "power": 0,
-        "duty_cycle": 0,
-        "rpm": 0
+  "fan-device": {
+    "status": {
+      "isOnline": 0,
+      "lastHeartbeat": 394820974
     },
-    "led-device": {
-        "power": 0,
-        "color": {
-            "red": 0,
-            "green": 0,
-            "blue": 0
-        }
-    }   
+    "power": 0,
+    "duty_cycle": 0,
+    "rpm": 0
+  },
+  "led-device": {
+    "status": {
+      "isOnline": 1,
+      "lastHeartbeat": 1706670211
+    },
+    "power": 1,
+    "function": 0,
+    "color": {
+      "red": 15,
+      "green": 161,
+      "blue": 17
     }
-def update_json_file():
+  }
+}
 
+def update_json_file():
     file_path = "storage.json"
     if os.path.exists(file_path):
         try:
@@ -50,34 +60,60 @@ def update_json_file():
 
 # Callback function for when a message is received
 def on_message(client, userdata, message):
-    topic = message.topic
-    message = message.payload.decode()
-    if "fan" in topic:
-        print("FAN")
-        if topic == "fan/status/power":
-            print("POWER")
-        elif topic == "fan/status/dc":
-            print("DC")
-    elif "led" in topic:
-        print("LED")
-        if topic == "led/status/power":
-            update_values["led-device"]["power"] = int(message[4:5])
-        elif topic == "led/status/color":
+    try:
+        topic = message.topic
+        message = message.payload.decode()
+        print(topic)
+        print(message)
+        if topic == "device_heartbeat":
+            timestamp = int(time.time())
+            if message == "fan":
+                update_values["fan-device"]["status"]["isOnline"] = 1
+                update_values["fan-device"]["status"]["lastHeartbeat"] = timestamp
+                
+            elif message == "led":
+                update_values["led-device"]["status"]["isOnline"] = 1
+                update_values["led-device"]["status"]["lastHeartbeat"] = timestamp
+        elif "fan" in topic:
+            if topic == "fan/status/power":
+                print("POWER")
+            elif topic == "fan/status/dc":
+                print("DC")
+        elif "led" in topic:
             data = json.loads(message)
-            update_values["led-device"]["color"]["red"] = int(data['red'])
-            update_values["led-device"]["color"]["green"] = int(data['green'])
-            update_values["led-device"]["color"]["blue"] = int(data['blue'])
-    elif "speaker" in topic:
-        print("SPEAKER")
-    else:
-        print("Error parsing device topic.")
-    update_json_file()
+            if topic == "led/status":
+                update_values["led-device"]["power"] = int(data['power'])
+                update_values["led-device"]["function"] = int(data['function'])
+                update_values["led-device"]["color"]["red"] = int(data['color']['red'])
+                update_values["led-device"]["color"]["green"] = int(data['color']['green'])
+                update_values["led-device"]["color"]["blue"] = int(data['color']['blue']) 
+        else:
+            print("Error parsing device topic.")
+        # global update_values
+        update_json_file()
+    except:
+        print("Error")
 
+def check_disconnected_devices():
+    current_time = int(time.time())
+
+    disconnect_threshold = 3  # Adjust as needed
+
+    for device_id, device_info in update_values.items():
+        last_heartbeat_time = device_info["status"]["lastHeartbeat"]
+
+        elapsed_time = current_time - last_heartbeat_time
+
+        if elapsed_time > disconnect_threshold:
+            print(f"Device {device_id} disconnected")
+            device_info["status"]["isOnline"] = 0
+    update_json_file()
 
 client = mqtt.Client()
 
 
 client.on_message = on_message
+
 client.connect(BROKER_ADDRESS, BROKER_PORT)
 
 
@@ -95,7 +131,9 @@ client.loop_start()
 
 while True:
     try:
-        input("Press Enter to exit...\n")
+        # input()
+        time.sleep(1.0)
+        check_disconnected_devices()
     except KeyboardInterrupt:
         # Press Ctrl+C to exit the loop
         break

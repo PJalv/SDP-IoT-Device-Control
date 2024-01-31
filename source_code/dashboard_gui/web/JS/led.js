@@ -75,8 +75,9 @@ dropdown.addEventListener('change', function () {
 
 document.getElementById("btn-submit").addEventListener("click", async function () {
     console.log("Enter submit");
-    let topic, message;
-    switch (selectedValue) {
+    let topic, message, functionObject;
+    console.log(selectedValue);
+    switch (parseInt(selectedValue)) {
         case 0:
             topic = 'led/control/color';
             const colorObject = {
@@ -87,13 +88,24 @@ document.getElementById("btn-submit").addEventListener("click", async function (
             message = `JSON:${JSON.stringify(colorObject)}`
             break;
         case 1:
-            //set topic and message for 
+            console.log("CASE 1\n");
+            topic = 'led/control/color'
+            functionObject = {
+                function: 1
+            }
+            message = `JSON:${JSON.stringify(functionObject)}`
             break;
         case 2:
+            topic = 'led/control/color'
+            functionObject = {
+                function: 2
+            }
+            message = `JSON:${JSON.stringify(functionObject)}`
             break;
         case 3:
             break;
         default:
+            console.log("Invalid Value", selectedValue);
             break;
     }
     await eel.publish_to_mqtt(topic, message)();

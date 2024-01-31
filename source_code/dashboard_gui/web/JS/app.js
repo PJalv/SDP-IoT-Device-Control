@@ -19,16 +19,7 @@ async function getBrokerStatus() {
         statusElement = document.querySelector("#hub-status").innerText = "Connected";
     } else {
         statusElement = document.querySelector("#hub-status").innerText = "Offline";
-        navbar = document.getElementById('navbar-list');
-        let node = document.createElement('div');
-        node.classList.add('navbar-text'); // Use add() method to add a class
-        node.innerText = "Connect to Broker"; // Set the text to "Connect"
-        node.onclick = async function () {
-            await eel.mqtt_connect()();
-        }
 
-        // Append the created 'div' element to the navbar
-        navbar.appendChild(node);
     }
 }
 
@@ -69,7 +60,7 @@ async function publish(topic, message) {
 }
 document.addEventListener('DOMContentLoaded', async function () {
     const status = await eel.getBrokerStatus()();
-
+    await getIP();
     console.log(status);
     if (!status) {
         await mqtt_connect();
