@@ -34,13 +34,13 @@
         </div>
     </nav>
 
-    <p class="text-center text-white font-weight-bold display-5 mt-4">Dashboard</p>
+    <p class="text-center text-white font-weight-bold display-6 ">Dashboard</p>
     <div class="container">
         <div class="row justify-content-between">
             <div class="col-md-6">
                 <div class="card device-card shadow" id="fan-device">
                     <!-- <div id="grayToggle"></div> -->
-                    <div class="card-body" style="height: 200px;">
+                    <div class="card-body mb-2" style="height: 160px;">
                         <h5 class="card-title" style="font-size: 18px; color: #007ca5; font-weight: bold;">Fan Device
                         </h5>
                         <div class="col-md-4">
@@ -66,15 +66,12 @@
 
                         </div>
 
-                        <div class="row">
+                        <div class="row justify-content-center">
                             <div class="col-md-4 text-center">
                                 <p class="lead" style="font-size: 14px; color: #007ca5;">Power: <span
                                         id="fan-power">Loading...</span></p>
                             </div>
-                            <div class="col-md-4 text-center">
-                                <p class="lead" style="font-size: 14px; color: #007ca5;">Duty Cycle: <span
-                                        id="fan-duty-cycle">Loading...</span></p>
-                            </div>
+                            
                             <div class="col-md-4 text-center">
                                 <p class="lead" style="font-size: 14px; color: #007ca5;">RPM: <span
                                         id="fan-rpm">Loading...</span></p>
@@ -86,7 +83,7 @@
 
             <div class="col-md-6">
                 <div class="card device-card shadow" id="led-device">
-                    <div class="card-body" style="height: 200px;">
+                    <div class="card-body" style="height: 160px;">
                         <h5 class="card-title" style="font-size: 18px; color: #007ca5; font-weight: bold;">LED Device
                         </h5>
                         <div class="row d-flex justify-content-center align-items-center mr-3 ml-1">
@@ -106,7 +103,7 @@
                                     style="width: 50px; height: 50px;">
                             </button>
                         </div>
-                        <div class="row">
+                        <div class="row justify-content-center">
                             <div class="col-md-4 text-center">
                                 <p class="lead" style="font-size: 14px; color: #007ca5;">Power: <span
                                         id="led-power">Loading...</span></p>
@@ -121,6 +118,10 @@
             </div>
         </div>
     </div>
+    <button type="button" class="btn btn-primary btn-square btn-lg d-flex align-items-center justify-content-center position-fixed bottom-0 end-0 m-3" style="width: 150px; height: 50px;" onclick="openSettings()">
+        <span class="mr-2" style="font-size: 14px; color: #ececec; font-weight: bold;">Main Settings</span>
+        <img src="../img/settings icon.png" alt="Settings Icon" class="button-img" style="width: 50px; height: 50px;">
+    </button>
     <script>
         function openFanSettings() {
             // Set the URL of the new page
@@ -131,6 +132,12 @@
         function openLEDSettings() {
             // Set the URL of the new page
             window.location.href = 'LEDSettings.html'; // Change 'new_page.html' to the desired page URL
+        }
+    </script>
+    <script>
+        function openSettings() {
+            // Set the URL of the new page
+            window.location.href = 'Settings.html'; // Change 'new_page.html' to the desired page URL
         }
     </script>
 

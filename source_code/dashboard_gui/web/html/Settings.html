@@ -6,9 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <title>Settings</title>
+    <link rel="stylesheet" href="../styles/styles.css">
 </head>
 
-<body>
+<body class="settings-page">
     <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top shadow-lg" style="padding: 0.2rem 0.2rem;">
         <div id="navbar-list" class="container">
             <!-- Brand/logo -->
@@ -18,20 +19,22 @@
             <div id="navbar" class="navbar-text">
                 IP: <span id="hub-ip">Your IP</span> | Status: <span id="hub-status"></span>
             </div>
+            <!-- IP and Status in Top Left -->
+            <a class="navbar-text" href="index.html">Back to Dashboard</a>
             <!-- <div class="navbar-text">Connect to Broker</div> -->
 
 
         </div>
     </nav>
 
-    <p class="text-center text-white font-weight-bold display-5 mt-4">Dashboard</p>
+    
 
-    <div class="container mt-4">
+    <div class="container mt-4 ">
         <h2>Broker Configuration</h2>
 
         <!-- Broker IP Address -->
         <div class="form-group row">
-            <label for="brokerIP" class="col-sm-2 col-form-label">Broker IP Address:</label>
+            <label for="brokerIP" class="col-sm-2 col-form-label font-weight-bold">Broker IP Address:</label>
             <div class="col-sm-6">
                 <input type="text" class="form-control" id="brokerIP" placeholder="Enter your Broker IP Address"
                     required>
@@ -43,20 +46,20 @@
 
         <!-- Broker Port Number -->
         <div class="form-group row">
-            <label for="brokerPort" class="col-sm-2 col-form-label">Broker Port Number:</label>
+            <label for="brokerPort" class="col-sm-2 col-form-label font-weight-bold">Broker Port Number:</label>
             <div class="col-sm-6">
                 <input type="text" class="form-control" id="brokerPort"
                     placeholder="Enter your Broker Port (usually 1883)" required>
             </div>
             <div class="col-sm-4">
-                <button class="btn btn-primary" onclick="saveBrokerParams()">Save</button>
+                <button class="btn btn-primary font-weight-bold" onclick="saveBrokerParams()">Save</button>
             </div>
         </div>
 
         <!-- Connect Button -->
         <div class="form-group row">
             <div class="col-sm-10 offset-sm-2">
-                <button id="btn-submit" class="btn btn-success" onclick="mqtt_connect()">Connect</button>
+                <button id="btn-submit" class="btn btn-success font-weight-bold" onclick="mqtt_connect()">Connect</button>
             </div>
         </div>
     </div>

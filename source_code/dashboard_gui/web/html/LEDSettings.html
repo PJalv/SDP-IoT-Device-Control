@@ -27,20 +27,28 @@
     </nav>
 
     <!-- LED Settings Content -->
-    <div class="led-container">
-        <img src="../img/LedIcon.png" alt="LED Image" class="led-image" style="width: 200px; height: 200px;">
-        <div class="settings-card" style="height: 350px;">
+    <div class="led-container mt-5 mr-2">
+        <div class="d-flex flex-column align-items-center">
+            <img src="../img/LedIcon.png" alt="LED Image" class="led-image" style="width: 200px; height: 200px;">
+            <button type="button" id="btn-submit" class="btn btn-primary mt-2">Apply Settings</button>
+        </div>
+        <div class="settings-card" style="height: 300px;">
 
-            <form>
-                <div class="mb-3">
+            <form class="row g-3">
+                <div class="col-md-6">
                     <label for="ledColorPicker" class="form-label">LED Color</label>
                     <input type="color" class="form-control form-control-color" id="ledColorPicker">
                 </div>
-                <div class="mb-3">
+                <div class="col-md-6">
+                    <!-- Power Button -->
+                    <button type="button" class="btn btn-primary align-items-center">Power</button>
+                </div>
+                <div class="col-md-6">
                     <label for="ledBrightnessBar" class="form-label">LED Brightness</label>
                     <input type="range" class="form-range" id="ledBrightnessBar" min="0" max="100" step="1">
+                    <div id="brightnessPercentage" class="text-center mt-2">0%</div>
                 </div>
-                <div class="mb-3">
+                <div class="col-md-6">
                     <label for="ledLightFunction" class="form-label">LED Light Function</label>
                     <select class="form-select" id="ledLightFunction">
                         <option value="0">None</option>
@@ -48,15 +56,44 @@
                         <option value="2">Trailing Rainbow</option>
                     </select>
                 </div>
-                <button type="button" id="btn-submit" class="btn btn-primary">Apply Settings</button>
             </form>
+            
+        </div>
+        <div class="card led-stats-card mt-3">
+            <div class="card-body">
+                <h5 class="card-title" style="font-size: 18px; color: #007ca5; font-weight: bold;">LED Stats</h5>
+                <div class="mb-3">
+                    <label for="currentColor" class="form-label">Current Color</label>
+                    <div id="currentColorSquare" class="color-square"></div>
+                </div>
+                <div class="mb-3">
+                    <label for="currentMode" class="form-label">Mode</label>
+                    <div id="currentMode">None</div>
+                </div>
+                <div class="mb-3">
+                    <label for="currentBrightness" class="form-label">Brightness</label>
+                    <div id="currentBrightnessPercentage">0%</div>
+                </div>
+            </div>
         </div>
     </div>
-
+    <script>
+        $(document).ready(function () {
+            $('#ledBrightnessBar').on('input', function () {
+                var value = $(this).val();
+                $('#brightnessPercentage').text(value + '%');
+            });
+    
+            // Ensure the initial value is displayed
+            var initialValue = $('#ledBrightnessBar').val();
+            $('#brightnessPercentage').text(initialValue + '%');
+        });
+    </script>
     <script src="/eel.js"></script>
     <script src="../JS/led.js"></script>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 </body>
 
 </html>
