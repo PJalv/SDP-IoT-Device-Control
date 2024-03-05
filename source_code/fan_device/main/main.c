@@ -11,15 +11,17 @@
 #include "driver/ledc.h"
 #include "nvs_flash.h"
 #include "storage_nvs.h"
+#include "cJSON.h"
+
+#define DEBOUNCE_DELAY pdMS_TO_TICKS(180)
 
 TaskHandle_t task1Handle = NULL;
 TaskHandle_t countTaskHandle = NULL;
 TaskHandle_t arrayProcessHandle = NULL;
 QueueHandle_t xDCQueue;
 SemaphoreHandle_t semaphoreDutyCycle;
-int i, i_fanState = 0;
-char *fanState = "OFF";
-int dutyCycle = 32;
+SemaphoreHandle_t terminationSemaphore;
+
 ledc_timer_config_t timer = {
     .speed_mode = LEDC_HIGH_SPEED_MODE,
     .duty_resolution = LEDC_TIMER_10_BIT,
@@ -33,73 +35,113 @@ ledc_channel_config_t channel = {
     .timer_sel = LEDC_TIMER_0,
     .duty = 3,
     .hpoint = 0};
+
+TickType_t lastInterrupt = 0;
+TickType_t currentInterrupt = 0;
+int i, i_fanState = 0;
+int function;
+char *fanState = "OFF";
+int dutyCycle = 32;
 int counter = 0;
+
+struct mqttData isrStruct = {
+    .topic = "",
+    .integerPayload = {
+        .isInteger = 0,
+        .intData = 0},
+    .jsonPayload = {.isJson = 0, .jsonData = ""}};
+
+void publish_status()
+{
+    cJSON *fanDeviceObject = cJSON_CreateObject();
+
+    cJSON_AddItemToObject(fanDeviceObject, "power", cJSON_CreateNumber(i_fanState));
+    cJSON_AddItemToObject(fanDeviceObject, "dutyCycle", cJSON_CreateNumber(dutyCycle));
+    cJSON_AddItemToObject(fanDeviceObject, "rpm", cJSON_CreateNumber(counter * 30));
+    cJSON_AddItemToObject(fanDeviceObject, "function", cJSON_CreateNumber(function));
+
+    char *payload = cJSON_Print(fanDeviceObject);
+    publish_state("fan/status", payload);
+    cJSON_free(payload);
+    cJSON_Delete(fanDeviceObject);
+}
+
 static void IRAM_ATTR rpm_handler(void *arg)
 {
     counter++;
 }
-TickType_t lastInterrupt = 0;
-TickType_t currentInterrupt = 0;
-
+static TickType_t last_interrupt_time = 0;
 static void power_button(void *arg)
 {
-    currentInterrupt = xTaskGetTickCountFromISR();
+    int button_state = gpio_get_level(12); // Replace BUTTON_GPIO with your button's GPIO
 
-    if ((currentInterrupt - lastInterrupt) > pdMS_TO_TICKS(50))
-    {
-        if (i_fanState == 1) // this should be the first time the relay triggers fan to turn on/off
-        {
-            gpio_set_level(19, 0);
-            fanState = "ON";
-            i_fanState = 0;
-        }
-        else
-        {
-            gpio_set_level(19, 1);
-            fanState = "OFF";
-            i_fanState = 1;
-        }
-    }
-}
+    // Variables to track debounce
+    TickType_t current_interrupt_time = xTaskGetTickCountFromISR();
+    TickType_t time_since_last_interrupt = current_interrupt_time - last_interrupt_time;
 
-static void lower_dc(void *arg)
-{
-    currentInterrupt = xTaskGetTickCountFromISR();
-    if ((currentInterrupt - lastInterrupt) > pdMS_TO_TICKS(25))
-    {
-        if (dutyCycle >= 90)
+    if (button_state == 0)
+    { // Button pressed (assuming low is pressed)
+
+        if (time_since_last_interrupt > DEBOUNCE_DELAY && time_since_last_interrupt != 0)
         {
-            if ((dutyCycle - 200) < 90)
+            // Debounced button press detected
+            if (i_fanState == 1)
             {
-                dutyCycle = 90;
+                isrStruct.integerPayload.isInteger = 1;
+                isrStruct.integerPayload.intData = 0;
             }
             else
             {
-                dutyCycle -= 200;
+                isrStruct.integerPayload.isInteger = 1;
+                isrStruct.integerPayload.intData = 1;
             }
-            channel.duty = dutyCycle;
-            ledc_channel_config(&channel);
+            push(isrStruct);
+            // Process the power change
+            isrStruct.integerPayload.isInteger = 0;
+            isrStruct.integerPayload.intData = 0;
+            xSemaphoreGiveFromISR(dataSemaphore, pdFALSE);
         }
+
+        last_interrupt_time = current_interrupt_time;
     }
 }
-static void increase_dc(void *arg)
+
+static void cycle_dc(void *arg)
 {
-    currentInterrupt = xTaskGetTickCountFromISR();
-    if ((currentInterrupt - lastInterrupt) > pdMS_TO_TICKS(25))
-    {
-        if (dutyCycle <= 1024)
+    static int cycle_speed;
+    int button_state = gpio_get_level(14); // Replace BUTTON_GPIO with your button's GPIO
+
+    // Variables to track debounce
+    TickType_t current_interrupt_time = xTaskGetTickCountFromISR();
+    TickType_t time_since_last_interrupt = current_interrupt_time - last_interrupt_time;
+
+    if (button_state == 0)
+    { // Button pressed (assuming low is pressed)
+
+        if (time_since_last_interrupt > DEBOUNCE_DELAY && time_since_last_interrupt != 0)
         {
-            if ((dutyCycle + 200) > 1000)
+            if (0 <= dutyCycle && dutyCycle <= 250)
+            {
+                dutyCycle = 400;
+            }
+            else if (251 <= dutyCycle && dutyCycle <= 550)
+            {
+                dutyCycle = 700;
+            }
+            else if (551 <= dutyCycle && dutyCycle <= 800)
             {
                 dutyCycle = 1000;
             }
-            else
+            else if (801 <= dutyCycle && dutyCycle <= 1024)
             {
-                dutyCycle += 200;
+                dutyCycle = 96;
             }
             channel.duty = dutyCycle;
             ledc_channel_config(&channel);
+            xSemaphoreGiveFromISR(dataSemaphore, pdFALSE);
         }
+
+        last_interrupt_time = current_interrupt_time;
     }
 }
 
@@ -118,6 +160,13 @@ void init()
     {
         printf("Semaphore Active!");
     }
+    terminationSemaphore = xSemaphoreCreateBinary();
+
+    if (terminationSemaphore == NULL)
+    {
+        /* There was insufficient FreeRTOS heap available for the semaphore to
+        be created successfully. */
+    }
     xDCQueue = xQueueCreate(5, sizeof(int));
 
     ledc_timer_config(&timer);
@@ -126,7 +175,6 @@ void init()
     channel.duty = dutyCycle;
     ledc_channel_config(&channel);
     if (i_fanState == 0) // this should be the first time the relay triggers fan to turn on/off
-
     {
         gpio_set_level(19, 0);
     }
@@ -155,8 +203,8 @@ void init()
     gpio_set_pull_mode(12, GPIO_PULLUP_ONLY);
     gpio_set_intr_type(14, GPIO_INTR_NEGEDGE);
     gpio_set_intr_type(27, GPIO_INTR_NEGEDGE);
-    gpio_isr_handler_add(14, lower_dc, NULL);
-    gpio_isr_handler_add(27, increase_dc, NULL);
+    gpio_isr_handler_add(14, cycle_dc, NULL);
+    // gpio_isr_handler_add(27, increase_dc, NULL);
     gpio_set_pull_mode(14, GPIO_PULLUP_ONLY);
     gpio_set_pull_mode(27, GPIO_PULLUP_ONLY);
 }
@@ -208,13 +256,49 @@ void arrayProcess(void *arg)
                 printf("POPPED DATA HAS INTEGER.\n");
                 txInt = temp.integerPayload.intData;
                 printf("SET txINT SUCCESSFULLY");
-                xQueueSend(xDCQueue, &txInt, portMAX_DELAY);
-                xSemaphoreGive(semaphoreDutyCycle);
-                printf("Data Sent to queue\n");
+                // xQueueSend(xDCQueue, &txInt, portMAX_DELAY);
+                // xSemaphoreGive(semaphoreDutyCycle);
+                // printf("Data Sent to queue\n");
+                switch (txInt)
+                {
+                case 0:
+                    gpio_set_level(19, 0);
+                    break;
+                case 1:
+                    gpio_set_level(19, 1);
+                    break;
+                default:
+                    dutyCycle = txInt;
+                    break;
+                }
+                channel.duty = dutyCycle;
+                ledc_channel_config(&channel);
+                publish_status();
             }
             else if (temp.jsonPayload.isJson == 1)
             {
-                /* code */
+                cJSON *root = cJSON_Parse(temp.jsonPayload.jsonData);
+                if (root == NULL)
+                {
+                    printf("Error parsing JSON: %s\n", cJSON_GetErrorPtr());
+                }
+                cJSON *functionItem = cJSON_GetObjectItem(root, "function");
+
+                if (functionItem != NULL)
+                {
+                    switch (functionItem->valueint)
+                    {
+                    case 1:
+                        function = 1;
+                        break;
+                    case 2:
+                        function = 2;
+                        break;
+                    default:
+                        break;
+                    }
+                }
+                publish_status();
             }
             else
             {
@@ -224,56 +308,6 @@ void arrayProcess(void *arg)
     };
 }
 
-void task1(void *arg)
-{
-    ledc_channel_config_t channel = {
-        .gpio_num = 16,
-        .speed_mode = LEDC_HIGH_SPEED_MODE,
-        .channel = LEDC_CHANNEL_0,
-        .timer_sel = LEDC_TIMER_0,
-        .duty = dutyCycle,
-        .hpoint = 0};
-    ledc_channel_config(&channel);
-
-    int dcApply;
-    while (1)
-    {
-
-        xQueueReceive(xDCQueue, &dcApply, portMAX_DELAY);
-        if (xSemaphoreTake(semaphoreDutyCycle, portTICK_PERIOD_MS) == pdTRUE)
-        {
-
-            switch (dcApply)
-            {
-            case 0:
-                gpio_set_level(19, 0);
-                fanState = "ON";
-                i_fanState = 0;
-                setFanInfo(0, dutyCycle);
-                publish_state("fan/status/power", fanState);
-
-                break;
-            case 1:
-                gpio_set_level(19, 1);
-                fanState = "OFF";
-                i_fanState = 1;
-                publish_state("fan/status/power", fanState);
-                setFanInfo(1, dutyCycle);
-                break;
-            default:
-                channel.duty = dcApply;
-                dutyCycle = channel.duty;
-                ledc_channel_config(&channel);
-                printf("FAN DUTY CYCLE CHANGED: NEW D/C = %d \n", dutyCycle);
-                setFanInfo(i_fanState, dutyCycle);
-                break;
-            }
-        }
-    }
-
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-}
-
 void app_main(void)
 {
     init();
@@ -281,7 +315,6 @@ void app_main(void)
     xTaskCreate(wifiTask, "wifi", 4096, NULL, 10, &wifiTaskHandle);
     vTaskDelay(5000 / portTICK_PERIOD_MS);
     xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
-    xTaskCreate(task1, "task1", 4096, NULL, 10, &task1Handle);
-    xTaskCreate(countTask, "countTask", 4096, NULL, 10, &countTaskHandle);
     xTaskCreate(arrayProcess, "Event processor", 4096, NULL, 10, &arrayProcessHandle);
+    xTaskCreate(countTask, "countTask", 4096, NULL, 10, &countTaskHandle);
 }
