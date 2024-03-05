@@ -136,8 +136,11 @@ static void cycle_dc(void *arg)
             {
                 dutyCycle = 96;
             }
-            channel.duty = dutyCycle;
-            ledc_channel_config(&channel);
+            isrStruct.integerPayload.isInteger = 1;
+            isrStruct.integerPayload.intData = dutyCycle;
+            push(isrStruct);
+            isrStruct.integerPayload.isInteger = 0;
+            isrStruct.integerPayload.intData = 0;
             xSemaphoreGiveFromISR(dataSemaphore, pdFALSE);
         }
 
@@ -259,20 +262,24 @@ void arrayProcess(void *arg)
                 // xQueueSend(xDCQueue, &txInt, portMAX_DELAY);
                 // xSemaphoreGive(semaphoreDutyCycle);
                 // printf("Data Sent to queue\n");
+                printf("TXINT: %d\n", txInt);
                 switch (txInt)
                 {
                 case 0:
                     gpio_set_level(19, 0);
+                    i_fanState = 0;
                     break;
                 case 1:
                     gpio_set_level(19, 1);
+                    i_fanState = 1;
+
                     break;
                 default:
-                    dutyCycle = txInt;
+                    channel.duty = dutyCycle;
+                    ledc_channel_config(&channel);
                     break;
                 }
-                channel.duty = dutyCycle;
-                ledc_channel_config(&channel);
+
                 publish_status();
             }
             else if (temp.jsonPayload.isJson == 1)
