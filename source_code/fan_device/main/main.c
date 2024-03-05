@@ -17,6 +17,7 @@
 
 TaskHandle_t task1Handle = NULL;
 TaskHandle_t countTaskHandle = NULL;
+TaskHandle_t heartbeatHandle = NULL;
 TaskHandle_t arrayProcessHandle = NULL;
 QueueHandle_t xDCQueue;
 SemaphoreHandle_t semaphoreDutyCycle;
@@ -202,11 +203,9 @@ void init()
     gpio_set_direction(14, GPIO_MODE_INPUT);
     gpio_set_direction(27, GPIO_MODE_INPUT);
     gpio_set_intr_type(12, GPIO_INTR_NEGEDGE);
-    gpio_isr_handler_add(12, power_button, NULL);
     gpio_set_pull_mode(12, GPIO_PULLUP_ONLY);
     gpio_set_intr_type(14, GPIO_INTR_NEGEDGE);
     gpio_set_intr_type(27, GPIO_INTR_NEGEDGE);
-    gpio_isr_handler_add(14, cycle_dc, NULL);
     // gpio_isr_handler_add(27, increase_dc, NULL);
     gpio_set_pull_mode(14, GPIO_PULLUP_ONLY);
     gpio_set_pull_mode(27, GPIO_PULLUP_ONLY);
@@ -240,6 +239,15 @@ void mqttTask(void *arg)
     while (1)
     {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
+
+void heartbeat(void *arg)
+{
+    while (1)
+    {
+        publish_state("device_heartbeat", "fan");
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
     }
 }
 
@@ -324,4 +332,7 @@ void app_main(void)
     xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
     xTaskCreate(arrayProcess, "Event processor", 4096, NULL, 10, &arrayProcessHandle);
     xTaskCreate(countTask, "countTask", 4096, NULL, 10, &countTaskHandle);
+    xTaskCreate(heartbeat, "Heartbeat", 4096, NULL, 10, &heartbeatHandle);
+    gpio_isr_handler_add(14, cycle_dc, NULL);
+    gpio_isr_handler_add(12, power_button, NULL);
 }
