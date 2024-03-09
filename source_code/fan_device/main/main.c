@@ -12,9 +12,13 @@
 #include "nvs_flash.h"
 #include "storage_nvs.h"
 #include "cJSON.h"
+#include "esp_spiffs.h"
+#include "driver/i2s_std.h"
 
 #define DEBOUNCE_DELAY pdMS_TO_TICKS(180)
-
+#define BUFFER_SIZE 4096
+#define REBOOT_WAIT 5000  // reboot after 5 seconds
+#define AUDIO_BUFFER 2048 
 TaskHandle_t task1Handle = NULL;
 TaskHandle_t countTaskHandle = NULL;
 TaskHandle_t heartbeatHandle = NULL;
@@ -148,7 +152,64 @@ static void cycle_dc(void *arg)
         last_interrupt_time = current_interrupt_time;
     }
 }
+i2s_chan_handle_t tx_handle;
+esp_err_t i2s_setup(void)
+{
+    i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);
+    ESP_ERROR_CHECK(i2s_new_channel(&chan_cfg, &tx_handle, NULL));
 
+    i2s_std_config_t std_cfg = {
+        .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(24000),
+        .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO),
+        .gpio_cfg = {
+            .mclk = I2S_GPIO_UNUSED,
+            .bclk = 26,
+            .ws = 25,
+            .dout = 22,
+            .din = I2S_GPIO_UNUSED,
+            .invert_flags = {
+                .mclk_inv = false,
+                .bclk_inv = false,
+                .ws_inv = false,
+            },
+        },
+    };
+    return i2s_channel_init_std_mode(tx_handle, &std_cfg);
+}
+esp_err_t play_wav(char *fp)
+{
+    FILE *fh = fopen(fp, "rb");
+    if (fh == NULL)
+    {
+        ESP_LOGE("AUDIO", "Failed to open file");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    // skip the header...
+    fseek(fh, 44, SEEK_SET);
+
+    // create a writer buffer
+    int16_t *buf = calloc(AUDIO_BUFFER, sizeof(int16_t));
+    size_t bytes_read = 0;
+    size_t bytes_written = 0;
+
+    bytes_read = fread(buf, sizeof(int16_t), AUDIO_BUFFER, fh);
+
+    i2s_channel_enable(tx_handle);
+
+    while (bytes_read > 0)
+    {
+        // write the buffer to the i2s
+        i2s_channel_write(tx_handle, buf, bytes_read * sizeof(int16_t), &bytes_written, portMAX_DELAY);
+        bytes_read = fread(buf, sizeof(int16_t), AUDIO_BUFFER, fh);
+        ESP_LOGV("AUDIO", "Bytes read: %d", bytes_read);
+    }
+
+    i2s_channel_disable(tx_handle);
+    free(buf);
+
+    return ESP_OK;
+}
 void init()
 {
 
@@ -244,6 +305,7 @@ void mqttTask(void *arg)
 
 void heartbeat(void *arg)
 {
+
     while (1)
     {
         publish_state("device_heartbeat", "fan");
@@ -335,4 +397,10 @@ void app_main(void)
     xTaskCreate(heartbeat, "Heartbeat", 4096, NULL, 10, &heartbeatHandle);
     gpio_isr_handler_add(14, cycle_dc, NULL);
     gpio_isr_handler_add(12, power_button, NULL);
+        esp_vfs_spiffs_conf_t config = {
+        .base_path = "/storage",
+        .partition_label = NULL,
+        .max_files = 5,
+        .format_if_mount_failed = false};
+    esp_vfs_spiffs_register(&config);
 }
