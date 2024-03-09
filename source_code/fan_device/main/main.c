@@ -74,7 +74,7 @@ static void IRAM_ATTR rpm_handler(void *arg)
 static TickType_t last_interrupt_time = 0;
 static void power_button(void *arg)
 {
-    int button_state = gpio_get_level(12); // Replace BUTTON_GPIO with your button's GPIO
+    int button_state = gpio_get_level(32); // Replace BUTTON_GPIO with your button's GPIO
 
     // Variables to track debounce
     TickType_t current_interrupt_time = xTaskGetTickCountFromISR();
@@ -110,7 +110,7 @@ static void power_button(void *arg)
 static void cycle_dc(void *arg)
 {
     static int cycle_speed;
-    int button_state = gpio_get_level(14); // Replace BUTTON_GPIO with your button's GPIO
+    int button_state = gpio_get_level(33); // Replace BUTTON_GPIO with your button's GPIO
 
     // Variables to track debounce
     TickType_t current_interrupt_time = xTaskGetTickCountFromISR();
@@ -189,7 +189,7 @@ void init()
     setFanInfo(i_fanState, dutyCycle);
     topicArray subscribeTopics = {
         .topics = {
-            "fan/status/duty_cycle"},
+            "fan/control"},
         .numStrings = 1 // Update this with the actual number of strings (topics)
     };
 
@@ -199,15 +199,15 @@ void init()
     gpio_set_intr_type(15, GPIO_INTR_POSEDGE);
     gpio_isr_handler_add(15, rpm_handler, NULL);
     gpio_set_direction(19, GPIO_MODE_OUTPUT);
-    gpio_set_direction(12, GPIO_MODE_INPUT);
-    gpio_set_direction(14, GPIO_MODE_INPUT);
+    gpio_set_direction(32, GPIO_MODE_INPUT);
+    gpio_set_direction(33, GPIO_MODE_INPUT);
     gpio_set_direction(27, GPIO_MODE_INPUT);
-    gpio_set_intr_type(12, GPIO_INTR_NEGEDGE);
-    gpio_set_pull_mode(12, GPIO_PULLUP_ONLY);
-    gpio_set_intr_type(14, GPIO_INTR_NEGEDGE);
+    gpio_set_intr_type(32, GPIO_INTR_NEGEDGE);
+    gpio_set_pull_mode(32, GPIO_PULLUP_ONLY);
+    gpio_set_intr_type(33, GPIO_INTR_NEGEDGE);
     gpio_set_intr_type(27, GPIO_INTR_NEGEDGE);
     // gpio_isr_handler_add(27, increase_dc, NULL);
-    gpio_set_pull_mode(14, GPIO_PULLUP_ONLY);
+    gpio_set_pull_mode(33, GPIO_PULLUP_ONLY);
     gpio_set_pull_mode(27, GPIO_PULLUP_ONLY);
 }
 
@@ -283,6 +283,7 @@ void arrayProcess(void *arg)
 
                     break;
                 default:
+                    dutyCycle = txInt;
                     channel.duty = dutyCycle;
                     ledc_channel_config(&channel);
                     break;
@@ -333,6 +334,6 @@ void app_main(void)
     xTaskCreate(arrayProcess, "Event processor", 4096, NULL, 10, &arrayProcessHandle);
     xTaskCreate(countTask, "countTask", 4096, NULL, 10, &countTaskHandle);
     xTaskCreate(heartbeat, "Heartbeat", 4096, NULL, 10, &heartbeatHandle);
-    gpio_isr_handler_add(14, cycle_dc, NULL);
-    gpio_isr_handler_add(12, power_button, NULL);
+    gpio_isr_handler_add(33, cycle_dc, NULL);
+    gpio_isr_handler_add(32, power_button, NULL);
 }
