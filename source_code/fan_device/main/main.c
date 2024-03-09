@@ -17,8 +17,8 @@
 
 #define DEBOUNCE_DELAY pdMS_TO_TICKS(180)
 #define BUFFER_SIZE 4096
-#define REBOOT_WAIT 5000  // reboot after 5 seconds
-#define AUDIO_BUFFER 2048 
+#define REBOOT_WAIT 5000 // reboot after 5 seconds
+#define AUDIO_BUFFER 2048
 TaskHandle_t task1Handle = NULL;
 TaskHandle_t countTaskHandle = NULL;
 TaskHandle_t heartbeatHandle = NULL;
@@ -389,16 +389,17 @@ void arrayProcess(void *arg)
 void app_main(void)
 {
     init();
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-    xTaskCreate(wifiTask, "wifi", 4096, NULL, 10, &wifiTaskHandle);
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
-    xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
-    xTaskCreate(arrayProcess, "Event processor", 4096, NULL, 10, &arrayProcessHandle);
-    xTaskCreate(countTask, "countTask", 4096, NULL, 10, &countTaskHandle);
-    xTaskCreate(heartbeat, "Heartbeat", 4096, NULL, 10, &heartbeatHandle);
-    gpio_isr_handler_add(33, cycle_dc, NULL);
-    gpio_isr_handler_add(32, power_button, NULL);
-        esp_vfs_spiffs_conf_t config = {
+    // vTaskDelay(1000 / portTICK_PERIOD_MS);
+    // xTaskCreate(wifiTask, "wifi", 4096, NULL, 10, &wifiTaskHandle);
+    // vTaskDelay(5000 / portTICK_PERIOD_MS);
+    // xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
+    // xTaskCreate(arrayProcess, "Event processor", 4096, NULL, 10, &arrayProcessHandle);
+    // xTaskCreate(countTask, "countTask", 4096, NULL, 10, &countTaskHandle);
+    // xTaskCreate(heartbeat, "Heartbeat", 4096, NULL, 10, &heartbeatHandle);
+    // gpio_isr_handler_add(33, cycle_dc, NULL);
+    // gpio_isr_handler_add(32, power_button, NULL);
+    i2s_setup();
+    esp_vfs_spiffs_conf_t config = {
         .base_path = "/storage",
         .partition_label = NULL,
         .max_files = 5,
