@@ -2,10 +2,13 @@
 async function getBrokerParams() {
     const params = await eel.getBrokerParams()();
     console.log(params);
+    brokerName = document.querySelector("#brokerNameInput");
+    brokerName.value = params[0];
+    document.querySelector("#brokerName").innerText = params[0  ];
     brokerIP = document.querySelector('#brokerIP')
-    brokerIP.value = params[0];
+    brokerIP.value = params[1];
     brokerPort = document.querySelector('#brokerPort')
-    brokerPort.value = params[1];
+    brokerPort.value = params[2];
 }
 async function getIP() {
     const ipaddr = await eel.getIP()();
@@ -14,10 +17,12 @@ async function getIP() {
 
 }
 async function saveBrokerParams() {
+    let newBrokerName = document.querySelector('#brokerNameInput').value;
     let newipAddress = document.querySelector("#brokerIP").value;
     let newPort = document.querySelector("#brokerPort").value;
     console.log("Saving new values");
-    await eel.saveBrokerParams([newipAddress, newPort])();
+    await eel.saveBrokerParams([newBrokerName, newipAddress, newPort])();
+    document.querySelector("#brokerName").innerText = newBrokerName;
 }
 async function mqtt_connect() {
     await eel.mqtt_connect()();

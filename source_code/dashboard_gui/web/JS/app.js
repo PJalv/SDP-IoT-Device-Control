@@ -59,6 +59,8 @@ async function publish(topic, message) {
     }
 }
 document.addEventListener('DOMContentLoaded', async function () {
+    const [brokerName] = await eel.getBrokerParams()();
+    console.log(brokerName);
     const status = await eel.getBrokerStatus()();
     await getIP();
     console.log(status);
@@ -69,6 +71,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     else {
         await getBrokerStatus();
     }
+    document.querySelector("#brokerName").innerText = brokerName;
 });
 setInterval(async () => {
     // console.log("enter loop");
