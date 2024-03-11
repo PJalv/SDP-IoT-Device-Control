@@ -75,14 +75,12 @@ setInterval(async () => {
     const data = await updateData();
     console.log(data);
     if (data !== null) {
-        // Handle the data
-        // console.log(`${i}: Updated data:`, JSON.stringify(data));
-        // i++;
-        // console.log("End loop");
-        // Example: Save the data to localStorage
+        // console.log(`Updated data:`, JSON.stringify(data));
         // localStorage.setItem('pageData', JSON.stringify(data));
-        // document.querySelector('h1').innerText = `${data["led-device"]["color"]["red"]}, ${data["led-device"]["color"]["green"]},${data["led-device"]["color"]["blue"]}`;
-        // document.querySelector('#colorPicker').value = `#${data["led-device"]["color"]["red"].toString(16).padStart(2, '0')}${data["led-device"]["color"]["green"].toString(16).padStart(2, '0')}${data["led-device"]["color"]["blue"].toString(16).padStart(2, '0')}`;
+        document.querySelector("#currentColorSquare").style.backgroundColor = `rgb(${data["led-device"]["color"]["red"]}, ${data["led-device"]["color"]["green"]}, ${data["led-device"]["color"]["blue"]})`;
+        document.querySelector('#fan-power').innerText = data['fan-device']['power'] == 1 ? "OFF" : "ON";
+        document.querySelector('#fan-rpm').innerText = data["fan-device"]["rpm"];
+
 
     }
 }, 500);
