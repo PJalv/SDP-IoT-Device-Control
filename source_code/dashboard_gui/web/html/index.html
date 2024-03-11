@@ -53,7 +53,7 @@
                         <div class="row d-flex justify-content-center align-items-center mr-3 ml-1 ">
                             <button type="button"
                                 class="btn btn-primary btn-square btn-lg d-flex align-items-center justify-content-center"
-                                id="fan-toggle" style="width: 50px; height: 50px;">
+                                id="fan-toggle" style="width: 50px; height: 50px;" onclick="publish('fan/control')">
                                 <img src="../img/powericon.png" alt="Button Image" class="button-img"
                                     style="width: 30px; height: 30px;">
                             </button>
@@ -92,7 +92,8 @@
                         <div class="row d-flex justify-content-center align-items-center mr-3 ml-1">
                             <button type="button"
                                 class="btn btn-primary btn-square btn-lg d-flex align-items-center justify-content-center"
-                                id="led-toggle" style="width: 50px; height: 50px;">
+                                id="led-toggle" style="width: 50px; height: 50px;"
+                                onclick="publish('led/control/power')">
                                 <img src="../img/powericon.png" alt="Button Image" class="button-img"
                                     style="width: 30px; height: 30px;">
                             </button>

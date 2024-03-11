@@ -34,24 +34,33 @@ async function updateData() {
     }
 }
 
-async function publish(topic, message) {
+async function publish(topic, message = null) {
     try {
+        const data = await updateData();
+        let powValue;
         switch (topic) {
-            case "led/control/power":
-                let powValue = await eel.getLEDPower()();
+            case "fan/control":
+                powValue = data['fan-device']['power'];
                 powValue = (powValue === 1) ? 0 : 1;
                 console.log(powValue);
                 await eel.publish_to_mqtt(topic, `INT:${powValue}`)();
                 break;
-            case "led/control/color":
-                const colorObject = {
-                    red: Math.floor(Math.random() * 256),
-                    green: Math.floor(Math.random() * 256),
-                    blue: Math.floor(Math.random() * 256),
-                };
-                await eel.publish_to_mqtt(topic, `JSON:${JSON.stringify(colorObject)}`)();
+            case "led/control/power":
+                powValue = data['led-device']['power'];
+                powValue = (powValue === 1) ? 0 : 1;
+                console.log(powValue);
+                await eel.publish_to_mqtt(topic, `INT:${powValue}`)();
                 break;
+            // case "led/control/color":
+            //     const colorObject = {
+            //         red: Math.floor(Math.random() * 256),
+            //         green: Math.floor(Math.random() * 256),
+            //         blue: Math.floor(Math.random() * 256),
+            //     };
+            //     await eel.publish_to_mqtt(topic, `JSON:${JSON.stringify(colorObject)}`)();
+            //     break;
             default:
+                await eel.publish_to_mqtt(topic, `INT:${message}`)
                 break;
         }
     } catch (error) {
@@ -76,6 +85,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 setInterval(async () => {
     // console.log("enter loop");
     const data = await updateData();
+
     console.log(data);
     if (data !== null) {
         // console.log(`Updated data:`, JSON.stringify(data));
