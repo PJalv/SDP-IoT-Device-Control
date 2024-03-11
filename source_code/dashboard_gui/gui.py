@@ -5,6 +5,10 @@ import socket
 import paho.mqtt.client as mqtt
 from dotenv import load_dotenv
 import os
+import platform
+
+
+
 
 env_path = os.path.join(os.path.dirname(__file__), '.env')
 
@@ -106,8 +110,10 @@ def mqtt_connect():
 
 
 # Start Eel with the HTML file
-# eel.start('html/index.html', mode='edge', block=False)
-eel.start('html/index.html', block=False)
+if platform.system() == 'Windows':
+    eel.start('html/index.html', mode='edge', block=False)
+else:
+    eel.start('html/index.html', block=False)
 
 while True:
     eel.sleep(1.0)
