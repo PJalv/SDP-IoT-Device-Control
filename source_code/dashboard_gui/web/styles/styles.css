@@ -3,7 +3,7 @@ html {
 }
 
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Open Sans', Arial, sans-serif;
     background-image: url('../img/IndexBackground.png');
     background-size: cover;
     background-position: center;
@@ -17,8 +17,19 @@ body {
     height: 100vh;
 }
 
+  h1, h2 {
+    font-weight: 700; /* for headings */
+  }
+  
+  p, li, div {
+    font-weight: 400; /* for body text */
+  }
+
+  h3 {
+    font-weight: 500; /* for body text */
+  }
 body.settings-page {
-    background-image: url('../img/SettingsBGGray.png'); /* Replace with your settings background image */
+    background-image: url('../img/SettingsBGGray.png'); 
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -28,30 +39,18 @@ body.settings-page {
     justify-content: center;
 }
 
-.fan-container,
-.led-container {
+.row.align-items-center {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 80%;
+    align-items: center; 
 }
 
-.fan-image,
-.led-image,
-.device-image {
-    max-width: 100%;
-    height: auto;
+.row.justify-content-center {
+    justify-content: center;
 }
 
-.settings-card,
-.device-card {
-    width: 40%;
-    padding: 20px;
-    background-color: #fff;
-    border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
-}
 
+
+/* -------------------Navigation------------------- */
 .navbar {
     background-color: #333;
     color: #fff;
@@ -61,18 +60,96 @@ body.settings-page {
     margin-left: 10px;
 }
 
+
+
+/* -------------------Containers------------------- */
+.fan-container {
+    margin-top: 5rem; /* Adjust the top margin to push the content down because of the fixed navbar */
+}
+
+.led-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 80%;
+}
+
+
+
+/* -------------------Base Card Design------------------- */
+.settings-card {
+    padding: 1rem; /* Add some padding */
+    background-color: #fff; /* Background color */
+    /* Add other styling as needed */
+    border-radius: 0.5rem; /* Rounded corners */
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.3); /* Card shadow */
+}
+.led-stats-card {
+    
+    background-color: #fff; /* Background color */
+    /* Add other styling as needed */
+    border-radius: 0.5rem; /* Rounded corners */
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.3); /* Card shadow */
+}
 .device-card {
+    width: 40%;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
     margin: 10px auto;
     max-width: 18rem;
     width: 100%;
-    /* Adjusted max-width to fit the card content */
 }
 
-.device-image {
-    border-radius: 5px 5px 0 0;
+.fan-statistics {
+    /* Add styling for statistics card */
+    padding: 1rem;
+    background-color: #fff;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.3);
+    margin-top: 1rem; /* Spacing between cards */
+}
+
+.form-label {
+
+    font-size: 16px;
+}
+
+.form-select {
+
+    font-size: 12px;
+}
+
+/* -------------------Card Elements------------------- */
+
+    /* -------------------Device Images------------------- */
+    .fan-image {
+        width: 150px; /* Adjust as needed */
+        height: auto; /* Maintain aspect ratio */
+        display: block; /* Remove if image should be inline */
+        margin: 0 auto; /* Center image in its container */
+    }
+
+    .led-image,
+    .device-image {
+        max-width: 100%;
+        height: auto;
+        border-radius: 5px 5px 0 0;
     /* Rounded top corners */
-}
+    }
+    
 
+    /* -------------------Color Selection------------------- */
+    .color-square {
+        width: 24px; /* Or any other size */
+        height: 24px; /* Should be equal to width for a square aspect ratio */
+        border: 1px solid #000; /* Black border */
+        background-color: #FFF; /* Default background color */
+        display: inline-block; /* So it doesn't take up the full width of its container */
+    }
+
+/* -------------------Other------------------- */
 .gray-out {
     position: absolute;
     top: 0;
@@ -85,12 +162,11 @@ body.settings-page {
     /* Ensure the overlay is on top of the content */
 }
 
-/* Adjust the style for the card to make it visually stand out */ 
-/* .card.device-card {
-    position: relative;
-    /* Make it a positioned container for the overlay */
-    /* z-index: 2; */
-    /* Ensure the card content is on top of the overlay */
-    /* pointer-events: none; */
-    /* Allow click-through to the elements beneath the overlay */
-    /* Ensure the card content is on top of the overlay */
+/* Center the form and cards within the grid */
+@media (min-width: 992px) { /* Adjust for lg screens */
+    .fan-container .row > div {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+}
