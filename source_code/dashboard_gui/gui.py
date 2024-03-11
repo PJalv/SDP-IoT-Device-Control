@@ -62,7 +62,10 @@ def getBrokerStatus():
 def getIP():
     try:
         # Get the local IP address
-        local_ip = socket.gethostbyname(socket.gethostname())
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))  # Connect to Google's public DNS server
+        local_ip = s.getsockname()[0]
+        s.close()
         return local_ip
     except Exception as e:
         print(f"Error: {e}")
@@ -87,7 +90,7 @@ def mqtt_connect():
         print(BROKER_ADDRESS)
         mqtt_client.connect(BROKER_ADDRESS, BROKER_PORT)
         mqtt_client.loop_start()
-        eel.sleep(2.0)
+        # eel.sleep(2.0)
         print("Connected successfully")
         return "success"
     

@@ -14,7 +14,7 @@ if not os.path.exists(env_path):
 load_dotenv()
 BROKER_ADDRESS = os.getenv("BROKER_ADDRESS")
 BROKER_PORT = int(os.getenv("BROKER_PORT"))
-topics = ["led/status", "led/status/color", "device_heartbeat"]
+topics = ["led/status", "led/status/color", "device_heartbeat", "fan/status", "fan/status/rpm"]
 
 update_values = {
   "fan-device": {
@@ -75,10 +75,11 @@ def on_message(client, userdata, message):
                 update_values["led-device"]["status"]["isOnline"] = 1
                 update_values["led-device"]["status"]["lastHeartbeat"] = timestamp
         elif "fan" in topic:
-            if topic == "fan/status/power":
-                print("POWER")
-            elif topic == "fan/status/dc":
-                print("DC")
+            data = json.loads(message)
+            if topic == "fan/status":
+                update_values["fan-device"]["power"] = int(data['power'])
+                update_values["fan-device"]["duty_cycle"] = int(data['dutyCycle'])
+                update_values["fan-device"]["rpm"] = int(data['rpm'])
         elif "led" in topic:
             data = json.loads(message)
             if topic == "led/status":

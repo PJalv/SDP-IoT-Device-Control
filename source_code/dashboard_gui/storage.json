@@ -1,24 +1,24 @@
 {
   "fan-device": {
     "status": {
-      "isOnline": 0,
-      "lastHeartbeat": 394820974
+      "isOnline": 1,
+      "lastHeartbeat": 1709877649
     },
-    "power": 0,
-    "duty_cycle": 0,
-    "rpm": 0
+    "power": 1,
+    "duty_cycle": 977,
+    "rpm": 600
   },
   "led-device": {
     "status": {
-      "isOnline": 1,
-      "lastHeartbeat": 1706673404
+      "isOnline": 0,
+      "lastHeartbeat": 1706670211
     },
     "power": 1,
-    "function": 2,
+    "function": 0,
     "color": {
-      "red": 201,
-      "green": 19,
-      "blue": 19
+      "red": 15,
+      "green": 161,
+      "blue": 17
     }
   }
 }
