@@ -14,12 +14,13 @@
 #include "cJSON.h"
 #include "esp_spiffs.h"
 #include "driver/i2s_std.h"
+#include "esp_random.h"
 
 #define DEBOUNCE_DELAY pdMS_TO_TICKS(180)
 #define BUFFER_SIZE 4096
 #define REBOOT_WAIT 5000 // reboot after 5 seconds
 #define AUDIO_BUFFER 2048
-TaskHandle_t task1Handle = NULL;
+TaskHandle_t currentHandle = NULL;
 TaskHandle_t countTaskHandle = NULL;
 TaskHandle_t heartbeatHandle = NULL;
 TaskHandle_t arrayProcessHandle = NULL;
@@ -48,7 +49,7 @@ int function;
 char *fanState = "OFF";
 int dutyCycle = 32;
 int counter = 0;
-
+static int rpm;
 struct mqttData isrStruct = {
     .topic = "",
     .integerPayload = {
@@ -62,7 +63,7 @@ void publish_status()
 
     cJSON_AddItemToObject(fanDeviceObject, "power", cJSON_CreateNumber(i_fanState));
     cJSON_AddItemToObject(fanDeviceObject, "dutyCycle", cJSON_CreateNumber(dutyCycle));
-    cJSON_AddItemToObject(fanDeviceObject, "rpm", cJSON_CreateNumber(counter * 30));
+    cJSON_AddItemToObject(fanDeviceObject, "rpm", cJSON_CreateNumber(rpm));
     cJSON_AddItemToObject(fanDeviceObject, "function", cJSON_CreateNumber(function));
 
     char *payload = cJSON_Print(fanDeviceObject);
@@ -113,7 +114,6 @@ static void power_button(void *arg)
 
 static void cycle_dc(void *arg)
 {
-    static int cycle_speed;
     int button_state = gpio_get_level(33); // Replace BUTTON_GPIO with your button's GPIO
 
     // Variables to track debounce
@@ -152,6 +152,7 @@ static void cycle_dc(void *arg)
         last_interrupt_time = current_interrupt_time;
     }
 }
+
 i2s_chan_handle_t tx_handle;
 esp_err_t i2s_setup(void)
 {
@@ -176,13 +177,13 @@ esp_err_t i2s_setup(void)
     };
     return i2s_channel_init_std_mode(tx_handle, &std_cfg);
 }
-esp_err_t play_wav(char *fp)
+void play_wav(void *arg)
 {
-    FILE *fh = fopen(fp, "rb");
+    FILE *fh = fopen((char *)arg, "rb");
     if (fh == NULL)
     {
         ESP_LOGE("AUDIO", "Failed to open file");
-        return ESP_ERR_INVALID_ARG;
+        // return ESP_ERR_INVALID_ARG;
     }
 
     // skip the header...
@@ -208,7 +209,46 @@ esp_err_t play_wav(char *fp)
     i2s_channel_disable(tx_handle);
     free(buf);
 
-    return ESP_OK;
+    vTaskDelete(NULL);
+}
+void breeze_mode(void *arg)
+{
+    const int minSpeed = 150;
+    const int maxSpeed = 1000;
+    const int increment = 50;
+    printf("Entered breeze mode\n");
+    int targetSpeedPast = 0;
+    while (1)
+    {
+        if (xSemaphoreTake(terminationSemaphore, 0) == pdTRUE)
+        {
+            break; // Terminate the task
+        }
+
+        int targetSpeed = minSpeed + esp_random() % (maxSpeed - minSpeed);
+        printf("Target speed: %d\n", targetSpeed);
+        int direction = (targetSpeed > targetSpeedPast) ? increment : -increment;
+
+        for (int i = targetSpeedPast; (direction > 0 && i < targetSpeed) || (direction < 0 && i > targetSpeed); i += direction)
+        {
+            printf("Duty cycle: %d\n", i);
+            channel.duty = i;
+            dutyCycle = i;
+            ledc_channel_config(&channel);
+            printf("waiting in loop...\n");
+            vTaskDelay(500 / portTICK_PERIOD_MS);
+        }
+
+        channel.duty = targetSpeed;
+        dutyCycle = targetSpeed;
+        ledc_channel_config(&channel);
+        targetSpeedPast = targetSpeed;
+        printf("waiting...\n");
+        vTaskDelay((3 + esp_random() % (6 - 3)) * 1000 / portTICK_PERIOD_MS);
+    }
+    printf("Exited breeze mode\n");
+
+    vTaskDelete(NULL);
 }
 void init()
 {
@@ -235,19 +275,29 @@ void init()
     xDCQueue = xQueueCreate(5, sizeof(int));
 
     ledc_timer_config(&timer);
-    getFanInfo(&i_fanState, &dutyCycle);
-    printf("FAN DC FROM NVS:%d", dutyCycle);
-    channel.duty = dutyCycle;
-    ledc_channel_config(&channel);
-    if (i_fanState == 0) // this should be the first time the relay triggers fan to turn on/off
+    getFanInfo(&i_fanState, &function, &dutyCycle);
+    switch (i_fanState)
     {
-        gpio_set_level(19, 0);
-    }
-    else
-    {
+    case 0:
         gpio_set_level(19, 1);
+        break;
+    case 1:
+        gpio_set_level(19, 0);
+        printf("FAN DC FROM NVS:%d", dutyCycle);
+        channel.duty = dutyCycle;
+        ledc_channel_config(&channel);
+
+    default:
+        break;
     }
-    setFanInfo(i_fanState, dutyCycle);
+
+    i2s_setup();
+    esp_vfs_spiffs_conf_t spiffsConfig = {
+        .base_path = "/storage",
+        .partition_label = NULL,
+        .max_files = 5,
+        .format_if_mount_failed = false};
+    esp_vfs_spiffs_register(&spiffsConfig);
     topicArray subscribeTopics = {
         .topics = {
             "fan/control"},
@@ -279,6 +329,7 @@ void countTask()
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         printf("Current RPM = %d\n...", counter * 30);
         printf("Current DC = %d\n...", dutyCycle);
+        rpm = counter * 30;
         counter = 0;
     }
     vTaskDelete(NULL);
@@ -309,7 +360,9 @@ void heartbeat(void *arg)
     while (1)
     {
         publish_state("device_heartbeat", "fan");
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        publish_status();
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
 
@@ -322,10 +375,16 @@ void arrayProcess(void *arg)
     {
         if (xSemaphoreTake(dataSemaphore, portTICK_PERIOD_MS) == pdTRUE)
         {
-            printf("IN MAIN FUNCTION FOR POPPING.\n");
+            if (currentHandle != NULL)
+            {
+                printf("TASK DELETED\n");
+                xSemaphoreGive(terminationSemaphore);
+                currentHandle = NULL;
+            }
             temp = pop();
             if (temp.integerPayload.isInteger == 1)
             {
+
                 printf("POPPED DATA HAS INTEGER.\n");
                 txInt = temp.integerPayload.intData;
                 printf("SET txINT SUCCESSFULLY");
@@ -336,11 +395,11 @@ void arrayProcess(void *arg)
                 switch (txInt)
                 {
                 case 0:
-                    gpio_set_level(19, 0);
+                    gpio_set_level(19, 1);
                     i_fanState = 0;
                     break;
                 case 1:
-                    gpio_set_level(19, 1);
+                    gpio_set_level(19, 0);
                     i_fanState = 1;
 
                     break;
@@ -350,7 +409,7 @@ void arrayProcess(void *arg)
                     ledc_channel_config(&channel);
                     break;
                 }
-
+                function = 0;
                 publish_status();
             }
             else if (temp.jsonPayload.isJson == 1)
@@ -368,6 +427,8 @@ void arrayProcess(void *arg)
                     {
                     case 1:
                         function = 1;
+                        xTaskCreate(breeze_mode, "Breeze Mode", 4096, NULL, 10, &currentHandle);
+                        xTaskCreate(play_wav, "Play Audio", 4096, (void *)"/storage/output.wav", 10, &currentHandle);
                         break;
                     case 2:
                         function = 2;
@@ -382,6 +443,7 @@ void arrayProcess(void *arg)
             {
                 printf("Invalid array configuration.");
             }
+            setFanInfo(i_fanState, function, dutyCycle);
         }
     };
 }
@@ -389,21 +451,13 @@ void arrayProcess(void *arg)
 void app_main(void)
 {
     init();
-    // vTaskDelay(1000 / portTICK_PERIOD_MS);
-    // xTaskCreate(wifiTask, "wifi", 4096, NULL, 10, &wifiTaskHandle);
-    // vTaskDelay(5000 / portTICK_PERIOD_MS);
-    // xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
-    // xTaskCreate(arrayProcess, "Event processor", 4096, NULL, 10, &arrayProcessHandle);
-    // xTaskCreate(countTask, "countTask", 4096, NULL, 10, &countTaskHandle);
-    // xTaskCreate(heartbeat, "Heartbeat", 4096, NULL, 10, &heartbeatHandle);
-    // gpio_isr_handler_add(33, cycle_dc, NULL);
-    // gpio_isr_handler_add(32, power_button, NULL);
-    i2s_setup();
-    esp_vfs_spiffs_conf_t config = {
-        .base_path = "/storage",
-        .partition_label = NULL,
-        .max_files = 5,
-        .format_if_mount_failed = false};
-    esp_vfs_spiffs_register(&config);
-    play_wav("/storage/output.wav");
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    xTaskCreate(wifiTask, "wifi", 4096, NULL, 10, &wifiTaskHandle);
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+    xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
+    xTaskCreate(arrayProcess, "Event processor", 4096, NULL, 10, &arrayProcessHandle);
+    xTaskCreate(countTask, "countTask", 4096, NULL, 10, &countTaskHandle);
+    xTaskCreate(heartbeat, "Heartbeat", 4096, NULL, 10, &heartbeatHandle);
+    gpio_isr_handler_add(33, cycle_dc, NULL);
+    gpio_isr_handler_add(32, power_button, NULL);
 }

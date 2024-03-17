@@ -8,7 +8,7 @@
 #define RPM_KEY "rpm"
 
 // Function prototypes
-void setFanInfo(int power, int dutyCycle);
-void getFanInfo(int *power, int *dutyCycle);
+void setFanInfo(int power, int function, int dutyCycle);
+void getFanInfo(int *power, int *function, int *dutyCycle);
 
 #endif /* FAN_NVS_H */

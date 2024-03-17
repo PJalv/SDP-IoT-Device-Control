@@ -3,9 +3,10 @@
 
 #define FAN_NAMESPACE "fan"
 #define POWER_KEY "power"
-#define RPM_KEY "rpm"
+#define DC_KEY "rpm"
+#define FUNCTION_KEY "function"
 
-void setFanInfo(int power, int dutyCycle)
+void setFanInfo(int power, int function, int dutyCycle)
 {
     // Initialize NVS
     esp_err_t err = nvs_flash_init();
@@ -34,8 +35,16 @@ void setFanInfo(int power, int dutyCycle)
     {
         printf("Power value stored in NVS: %d\n", power);
     }
-
-    err |= nvs_set_i32(my_handle, RPM_KEY, dutyCycle);
+    err = nvs_set_i32(my_handle, FUNCTION_KEY, function);
+    if (err != ESP_OK)
+    {
+        printf("Error (%s) setting function value to NVS!\n", esp_err_to_name(err));
+    }
+    else
+    {
+        printf("Function value stored in NVS: %d\n", function);
+    }
+    err |= nvs_set_i32(my_handle, DC_KEY, dutyCycle);
     if (err != ESP_OK)
     {
         printf("Error (%s) setting duty cycle value to NVS!\n", esp_err_to_name(err));
@@ -60,7 +69,7 @@ void setFanInfo(int power, int dutyCycle)
     nvs_close(my_handle);
 }
 
-void getFanInfo(int *power, int *dutyCycle)
+void getFanInfo(int *power, int *function, int *dutyCycle)
 {
     nvs_handle_t my_handle;
     // Open NVS namespace
@@ -82,7 +91,17 @@ void getFanInfo(int *power, int *dutyCycle)
         printf("Retrieved power value from NVS: %d\n", *power);
     }
 
-    err |= nvs_get_i32(my_handle, RPM_KEY, dutyCycle);
+    err = nvs_get_i32(my_handle, FUNCTION_KEY, function);
+    if (err != ESP_OK)
+    {
+        printf("Error (%s) reading function value from NVS!\n", esp_err_to_name(err));
+    }
+    else
+    {
+        printf("Retrieved function value from NVS: %d\n", *function);
+    }
+
+    err |= nvs_get_i32(my_handle, DC_KEY, dutyCycle);
     if (err != ESP_OK)
     {
         printf("Error (%s) reading duty cycle value from NVS!\n", esp_err_to_name(err));
