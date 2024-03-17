@@ -1,0 +1,1 @@
+python store.py & python gui.py

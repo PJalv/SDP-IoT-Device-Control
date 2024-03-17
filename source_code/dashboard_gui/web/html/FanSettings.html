@@ -36,19 +36,20 @@
             <div class="col-md-4">
                 <div class="settings-card text-center">
 
+                    <div class="mb-3 align-items-center">
+                        <button type="button" class="btn btn-success btn-primary" id="fanToggle">Power</button>
+                    </div>
                     <form>
-                        <div class="mb-3 align-items-center">
-                            <button type="button" class="btn btn-danger btn-primary" id="fanToggle">Power</button>
-                        </div>
                         <div class="mb-3">
                             <label for="fanSpeed" class="form-label">Fan Speed</label>
-                            <input type="range" class="form-range" id="fanSpeed" min="96" max="1000" step="1">
+                            <input type="range" class="form-range" id="fanSpeed" min="96" max="1000" step="1" value="548">
+                            <span>Speed: <span id="speedDisplay"></span></span>
                         </div>
                         <div class="mb-3 form-check">
                             <input type="checkbox" class="form-check-input" id="breezeMode">
                             <label class="form-check-label" for="breezeMode">Breeze Mode</label>
                         </div>
-                        <button id="updateFan" type="submit" class="btn btn-primary">Apply Settings</button>
+                        <button id="updateFan" type="button" class="btn btn-primary">Apply Settings</button>
                     </form>
                 </div>
             </div>
@@ -64,7 +65,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- jQuery library -->
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <!-- Popper.js, Bootstrap, and other libraries and scripts that depend on jQuery -->
@@ -76,14 +77,14 @@
 
     <script>
         $(document).ready(function () {
-           
+
             $('#fanToggle').on('click', function () {
                 // Toggle power state code goes here
                 $(this).toggleClass('btn-success btn-danger'); // Change color to indicate on/off state
             });
-        
+
         });
-        </script>
+    </script>
 </body>
 
 </html>

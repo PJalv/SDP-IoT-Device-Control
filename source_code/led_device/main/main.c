@@ -223,6 +223,13 @@ void init()
     {
         printf("Semaphore Active!");
     }
+    terminationSemaphore = xSemaphoreCreateBinary();
+
+    if (terminationSemaphore == NULL)
+    {
+        /* There was insufficient FreeRTOS heap available for the semaphore to
+        be created successfully. */
+    }
     xColorQueue = xQueueCreate(5, 3 * sizeof(int));
     xPowerQueue = xQueueCreate(5, sizeof(int));
 
@@ -231,13 +238,7 @@ void init()
     {
         red = green = blue = 255;
     }
-    terminationSemaphore = xSemaphoreCreateBinary();
 
-    if (terminationSemaphore == NULL)
-    {
-        /* There was insufficient FreeRTOS heap available for the semaphore to
-        be created successfully. */
-    }
     led_strip = configure_led();
     switch (power)
     {
@@ -272,7 +273,6 @@ void init()
     default:
         break;
     }
-    setLEDInfo(power, function, red, green, blue);
 
     topicArray subscribeTopics = {
         .topics = {

@@ -48,7 +48,7 @@ int function;
 char *fanState = "OFF";
 int dutyCycle = 32;
 int counter = 0;
-
+static int rpm;
 struct mqttData isrStruct = {
     .topic = "",
     .integerPayload = {
@@ -62,7 +62,7 @@ void publish_status()
 
     cJSON_AddItemToObject(fanDeviceObject, "power", cJSON_CreateNumber(i_fanState));
     cJSON_AddItemToObject(fanDeviceObject, "dutyCycle", cJSON_CreateNumber(dutyCycle));
-    cJSON_AddItemToObject(fanDeviceObject, "rpm", cJSON_CreateNumber(counter * 30));
+    cJSON_AddItemToObject(fanDeviceObject, "rpm", cJSON_CreateNumber(rpm));
     cJSON_AddItemToObject(fanDeviceObject, "function", cJSON_CreateNumber(function));
 
     char *payload = cJSON_Print(fanDeviceObject);
@@ -279,6 +279,7 @@ void countTask()
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         printf("Current RPM = %d\n...", counter * 30);
         printf("Current DC = %d\n...", dutyCycle);
+        rpm = counter * 30;
         counter = 0;
     }
     vTaskDelete(NULL);
@@ -309,7 +310,9 @@ void heartbeat(void *arg)
     while (1)
     {
         publish_state("device_heartbeat", "fan");
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        publish_status();
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
 
@@ -329,9 +332,6 @@ void arrayProcess(void *arg)
                 printf("POPPED DATA HAS INTEGER.\n");
                 txInt = temp.integerPayload.intData;
                 printf("SET txINT SUCCESSFULLY");
-                // xQueueSend(xDCQueue, &txInt, portMAX_DELAY);
-                // xSemaphoreGive(semaphoreDutyCycle);
-                // printf("Data Sent to queue\n");
                 printf("TXINT: %d\n", txInt);
                 switch (txInt)
                 {
@@ -389,15 +389,15 @@ void arrayProcess(void *arg)
 void app_main(void)
 {
     init();
-    // vTaskDelay(1000 / portTICK_PERIOD_MS);
-    // xTaskCreate(wifiTask, "wifi", 4096, NULL, 10, &wifiTaskHandle);
-    // vTaskDelay(5000 / portTICK_PERIOD_MS);
-    // xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
-    // xTaskCreate(arrayProcess, "Event processor", 4096, NULL, 10, &arrayProcessHandle);
-    // xTaskCreate(countTask, "countTask", 4096, NULL, 10, &countTaskHandle);
-    // xTaskCreate(heartbeat, "Heartbeat", 4096, NULL, 10, &heartbeatHandle);
-    // gpio_isr_handler_add(33, cycle_dc, NULL);
-    // gpio_isr_handler_add(32, power_button, NULL);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    xTaskCreate(wifiTask, "wifi", 4096, NULL, 10, &wifiTaskHandle);
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+    xTaskCreate(mqttTask, "mqtt", 4096, NULL, 10, &mqttTaskHandle);
+    xTaskCreate(arrayProcess, "Event processor", 4096, NULL, 10, &arrayProcessHandle);
+    xTaskCreate(countTask, "countTask", 4096, NULL, 10, &countTaskHandle);
+    xTaskCreate(heartbeat, "Heartbeat", 4096, NULL, 10, &heartbeatHandle);
+    gpio_isr_handler_add(33, cycle_dc, NULL);
+    gpio_isr_handler_add(32, power_button, NULL);
     i2s_setup();
     esp_vfs_spiffs_conf_t config = {
         .base_path = "/storage",

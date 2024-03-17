@@ -91,7 +91,7 @@ setInterval(async () => {
         // console.log(`Updated data:`, JSON.stringify(data));
         // localStorage.setItem('pageData', JSON.stringify(data));
         document.querySelector("#currentColorSquare").style.backgroundColor = `rgb(${data["led-device"]["color"]["red"]}, ${data["led-device"]["color"]["green"]}, ${data["led-device"]["color"]["blue"]})`;
-        document.querySelector('#fan-power').innerText = data['fan-device']['power'] == 1 ? "OFF" : "ON";
+        document.querySelector('#fan-power').innerText = data['fan-device']['power'] == 0 ? "OFF" : "ON";
         document.querySelector('#fan-rpm').innerText = data["fan-device"]["rpm"];
 
 

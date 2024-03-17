@@ -22,6 +22,7 @@ update_values = {
       "isOnline": 0,
       "lastHeartbeat": 394820974
     },
+    "function": 0,
     "power": 0,
     "duty_cycle": 0,
     "rpm": 0
@@ -76,7 +77,9 @@ def on_message(client, userdata, message):
                 update_values["led-device"]["status"]["lastHeartbeat"] = timestamp
         elif "fan" in topic:
             data = json.loads(message)
+            print(data)
             if topic == "fan/status":
+                update_values["fan-device"]["function"] = int(data['function'])
                 update_values["fan-device"]["power"] = int(data['power'])
                 update_values["fan-device"]["duty_cycle"] = int(data['dutyCycle'])
                 update_values["fan-device"]["rpm"] = int(data['rpm'])
