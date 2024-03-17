@@ -15,6 +15,9 @@
     <!-- Bootstrap Icons CSS CDN (optional, if you're using icons) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.17.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="../styles/styles.css">
+    <!-- Font Inclusiocn -->
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap" rel="stylesheet">
+
 </head>
 
 <body>
@@ -22,9 +25,9 @@
     <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top shadow-lg" style="padding: 0.2rem 0.2rem;">
         <div id="navbar-list" class="container">
             <!-- Brand/logo -->
-            <a class="navbar-brand" href="#">Your Hub Name</a>
+            <a class="navbar-brand" href="#"><span id="brokerName"> Your Hub Name</span></a>
 
-            <!-- IP and Status in Top Left -->
+            <!-- IP and Status in Top Right -->
             <div id="navbar" class="navbar-text">
                 IP: <span id="hub-ip">Your IP</span> | Status: <span id="hub-status"></span>
             </div>
@@ -34,7 +37,7 @@
         </div>
     </nav>
 
-    <p class="text-center text-white font-weight-bold display-6 ">Dashboard</p>
+    <h1 class="text-center text-white font-weight-bold display-6 ">Dashboard</h1>
     <div class="container">
         <div class="row justify-content-between">
             <div class="col-md-6">
@@ -50,7 +53,7 @@
                         <div class="row d-flex justify-content-center align-items-center mr-3 ml-1 ">
                             <button type="button"
                                 class="btn btn-primary btn-square btn-lg d-flex align-items-center justify-content-center"
-                                id="fan-toggle" style="width: 50px; height: 50px;">
+                                id="fan-toggle" style="width: 50px; height: 50px;" onclick="publish('fan/control')">
                                 <img src="../img/powericon.png" alt="Button Image" class="button-img"
                                     style="width: 30px; height: 30px;">
                             </button>
@@ -71,7 +74,7 @@
                                 <p class="lead" style="font-size: 14px; color: #007ca5;">Power: <span
                                         id="fan-power">Loading...</span></p>
                             </div>
-                            
+
                             <div class="col-md-4 text-center">
                                 <p class="lead" style="font-size: 14px; color: #007ca5;">RPM: <span
                                         id="fan-rpm">Loading...</span></p>
@@ -89,7 +92,8 @@
                         <div class="row d-flex justify-content-center align-items-center mr-3 ml-1">
                             <button type="button"
                                 class="btn btn-primary btn-square btn-lg d-flex align-items-center justify-content-center"
-                                id="led-toggle" style="width: 50px; height: 50px;">
+                                id="led-toggle" style="width: 50px; height: 50px;"
+                                onclick="publish('led/control/power')">
                                 <img src="../img/powericon.png" alt="Button Image" class="button-img"
                                     style="width: 30px; height: 30px;">
                             </button>
@@ -109,8 +113,13 @@
                                         id="led-power">Loading...</span></p>
                             </div>
                             <div class="col-md-4 text-center">
-                                <p class="lead" style="font-size: 14px; color: #007ca5;">Color: <span
-                                        id="led-color">Loading...</span></p>
+                                <span id="led-color">
+                                    <div id="currentColorSquare" class="color-square mx-auto">
+                                        <!-- mx-auto to center block elements -->
+                                        <!-- Color square will go here -->
+                                    </div>
+
+
                             </div>
                         </div>
                     </div>
@@ -118,7 +127,9 @@
             </div>
         </div>
     </div>
-    <button type="button" class="btn btn-primary btn-square btn-lg d-flex align-items-center justify-content-center position-fixed bottom-0 end-0 m-3" style="width: 150px; height: 50px;" onclick="openSettings()">
+    <button type="button"
+        class="btn btn-primary btn-square btn-lg d-flex align-items-center justify-content-center position-fixed bottom-0 end-0 m-3"
+        style="width: 150px; height: 50px;" onclick="openSettings()">
         <span class="mr-2" style="font-size: 14px; color: #ececec; font-weight: bold;">Main Settings</span>
         <img src="../img/settings icon.png" alt="Settings Icon" class="button-img" style="width: 50px; height: 50px;">
     </button>

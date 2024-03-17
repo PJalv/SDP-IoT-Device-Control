@@ -34,24 +34,33 @@ async function updateData() {
     }
 }
 
-async function publish(topic, message) {
+async function publish(topic, message = null) {
     try {
+        const data = await updateData();
+        let powValue;
         switch (topic) {
-            case "led/control/power":
-                let powValue = await eel.getLEDPower()();
+            case "fan/control":
+                powValue = data['fan-device']['power'];
                 powValue = (powValue === 1) ? 0 : 1;
                 console.log(powValue);
                 await eel.publish_to_mqtt(topic, `INT:${powValue}`)();
                 break;
-            case "led/control/color":
-                const colorObject = {
-                    red: Math.floor(Math.random() * 256),
-                    green: Math.floor(Math.random() * 256),
-                    blue: Math.floor(Math.random() * 256),
-                };
-                await eel.publish_to_mqtt(topic, `JSON:${JSON.stringify(colorObject)}`)();
+            case "led/control/power":
+                powValue = data['led-device']['power'];
+                powValue = (powValue === 1) ? 0 : 1;
+                console.log(powValue);
+                await eel.publish_to_mqtt(topic, `INT:${powValue}`)();
                 break;
+            // case "led/control/color":
+            //     const colorObject = {
+            //         red: Math.floor(Math.random() * 256),
+            //         green: Math.floor(Math.random() * 256),
+            //         blue: Math.floor(Math.random() * 256),
+            //     };
+            //     await eel.publish_to_mqtt(topic, `JSON:${JSON.stringify(colorObject)}`)();
+            //     break;
             default:
+                await eel.publish_to_mqtt(topic, `INT:${message}`)
                 break;
         }
     } catch (error) {
@@ -59,6 +68,8 @@ async function publish(topic, message) {
     }
 }
 document.addEventListener('DOMContentLoaded', async function () {
+    const [brokerName] = await eel.getBrokerParams()();
+    console.log(brokerName);
     const status = await eel.getBrokerStatus()();
     await getIP();
     console.log(status);
@@ -69,20 +80,20 @@ document.addEventListener('DOMContentLoaded', async function () {
     else {
         await getBrokerStatus();
     }
+    document.querySelector("#brokerName").innerText = brokerName;
 });
 setInterval(async () => {
     // console.log("enter loop");
     const data = await updateData();
+
     console.log(data);
     if (data !== null) {
-        // Handle the data
-        // console.log(`${i}: Updated data:`, JSON.stringify(data));
-        // i++;
-        // console.log("End loop");
-        // Example: Save the data to localStorage
+        // console.log(`Updated data:`, JSON.stringify(data));
         // localStorage.setItem('pageData', JSON.stringify(data));
-        // document.querySelector('h1').innerText = `${data["led-device"]["color"]["red"]}, ${data["led-device"]["color"]["green"]},${data["led-device"]["color"]["blue"]}`;
-        // document.querySelector('#colorPicker').value = `#${data["led-device"]["color"]["red"].toString(16).padStart(2, '0')}${data["led-device"]["color"]["green"].toString(16).padStart(2, '0')}${data["led-device"]["color"]["blue"].toString(16).padStart(2, '0')}`;
+        document.querySelector("#currentColorSquare").style.backgroundColor = `rgb(${data["led-device"]["color"]["red"]}, ${data["led-device"]["color"]["green"]}, ${data["led-device"]["color"]["blue"]})`;
+        document.querySelector('#fan-power').innerText = data['fan-device']['power'] == 0 ? "OFF" : "ON";
+        document.querySelector('#fan-rpm').innerText = data["fan-device"]["rpm"];
+
 
     }
 }, 500);
