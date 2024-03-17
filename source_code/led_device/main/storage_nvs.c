@@ -91,7 +91,7 @@ void setLEDInfo(int power, int function, int red, int green, int blue)
     nvs_close(my_handle);
 }
 
-void getLEDInfo(int *power, char **function, int *red, int *green, int *blue)
+void getLEDInfo(int *power, int *function, int *red, int *green, int *blue)
 {
     nvs_handle_t my_handle;
     // Open NVS namespace
@@ -119,7 +119,7 @@ void getLEDInfo(int *power, char **function, int *red, int *green, int *blue)
     }
     else
     {
-        printf("Function value retrieved from NVS: %d\n", *power);
+        printf("Function value retrieved from NVS: %d\n", function);
     }
 
     err = nvs_get_i32(my_handle, RED_KEY, red);
