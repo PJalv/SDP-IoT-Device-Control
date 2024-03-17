@@ -6,7 +6,7 @@
 #define DC_KEY "rpm"
 #define FUNCTION_KEY "function"
 
-void setFanInfo(int power, int function, int dutyCycle)
+void setFanInfo(int power, int function , int dutyCycle)
 {
     // Initialize NVS
     esp_err_t err = nvs_flash_init();
