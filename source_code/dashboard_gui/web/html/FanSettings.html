@@ -19,7 +19,7 @@
     <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top shadow-lg" style="padding: 0.2rem 0.2rem;">
         <div class="container">
             <!-- Brand/logo -->
-            <a class="navbar-brand">Fan Device</a>
+            <a class="navbar-brand">Fan Device (<span id="statusLabel"></span>)</a>
 
             <!-- IP and Status in Top Left -->
             <a class="navbar-text" href="index.html">Back to Dashboard</a>
@@ -42,7 +42,8 @@
                     <form>
                         <div class="mb-3">
                             <label for="fanSpeed" class="form-label">Fan Speed</label>
-                            <input type="range" class="form-range" id="fanSpeed" min="96" max="1000" step="1" value="548">
+                            <input type="range" class="form-range" id="fanSpeed" min="96" max="1000" step="1"
+                                value="548">
                             <span>Speed: <span id="speedDisplay"></span></span>
                         </div>
                         <div class="mb-3 form-check">

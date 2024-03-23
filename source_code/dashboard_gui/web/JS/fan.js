@@ -128,6 +128,8 @@ setInterval(async () => {
         document.querySelector('#fan-power').innerText = data['fan-device']['power'] == 0 ? "OFF" : "ON";
         document.querySelector('#fan-duty-cycle').innerText = data['fan-device']['duty_cycle'];
         document.querySelector('#fan-rpm').innerText = data['fan-device']['rpm'];
+        document.querySelector('#statusLabel').innerText = data['fan-device']['status']['isOnline'] === 0 ? "OFFLINE" : "ONLINE";
+        document.querySelector('#statusLabel').style.color = data['fan-device']['status']['isOnline'] === 0 ? "red" : "green";
 
     }
 }, 500);

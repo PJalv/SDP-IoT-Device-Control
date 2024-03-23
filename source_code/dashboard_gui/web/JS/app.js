@@ -17,8 +17,10 @@ async function getBrokerStatus() {
     const status = await eel.getBrokerStatus()();
     if (status) {
         statusElement = document.querySelector("#hub-status").innerText = "Connected";
+        statusElement = document.querySelector("#hub-status").style.color = "green";
     } else {
         statusElement = document.querySelector("#hub-status").innerText = "Offline";
+        statusElement = document.querySelector("#hub-status").style.color = "red";
 
     }
 }
@@ -68,6 +70,8 @@ async function publish(topic, message = null) {
     }
 }
 document.addEventListener('DOMContentLoaded', async function () {
+    const data = await updateData();
+    document.querySelector('#fan-device').classList = data["fan-device"]["status"]["isOnline"]==0?"card device-card shadow gray-out":"card device-card shadow";
     const [brokerName] = await eel.getBrokerParams()();
     console.log(brokerName);
     const status = await eel.getBrokerStatus()();
@@ -93,6 +97,8 @@ setInterval(async () => {
         document.querySelector("#currentColorSquare").style.backgroundColor = `rgb(${data["led-device"]["color"]["red"]}, ${data["led-device"]["color"]["green"]}, ${data["led-device"]["color"]["blue"]})`;
         document.querySelector('#fan-power').innerText = data['fan-device']['power'] == 0 ? "OFF" : "ON";
         document.querySelector('#fan-rpm').innerText = data["fan-device"]["rpm"];
+        document.querySelector('#fan-device').classList = data["fan-device"]["status"]["isOnline"]==0?"card device-card shadow gray-out":"card device-card shadow";
+        document.querySelector('#led-device').classList = data["led-device"]["status"]["isOnline"]==0?"card device-card shadow gray-out":"card device-card shadow";
 
 
     }

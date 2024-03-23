@@ -4,7 +4,7 @@ async function getBrokerParams() {
     console.log(params);
     brokerName = document.querySelector("#brokerNameInput");
     brokerName.value = params[0];
-    document.querySelector("#brokerName").innerText = params[0  ];
+    document.querySelector("#brokerName").innerText = params[0];
     brokerIP = document.querySelector('#brokerIP')
     brokerIP.value = params[1];
     brokerPort = document.querySelector('#brokerPort')
@@ -50,6 +50,7 @@ async function getBrokerStatus() {
 }
 
 document.addEventListener('DOMContentLoaded', async function () {
+    await getIP();
     await getBrokerParams();
     await getBrokerStatus();
 });
