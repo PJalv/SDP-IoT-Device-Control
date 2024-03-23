@@ -11,13 +11,12 @@
 #include "../credentials.h" //system applications for light weight ip apps
 #include "freertos/task.h"
 
-extern TaskHandle_t wifiTaskHandle = NULL;
+TaskHandle_t wifiTaskHandle = NULL;
 
 const char *ssid = WIFI_SSID;
 const char *pass = WIFI_PASSWORD;
 
-extern bool isWifiConnected = false;
-extern 
+bool isWifiConnected = false;
 char *wifiTag = "WiFi";
 static void wifi_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
