@@ -1,21 +1,94 @@
-import * as React from 'react';
-import { Button, Text, View, StyleSheet, ImageBackground, TouchableOpacity, Dimensions, Image } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import React, { useEffect, useState } from "react";
+import {
+  Button,
+  Text,
+  View,
+  StyleSheet,
+  ImageBackground,
+  TouchableOpacity,
+  Dimensions,
+  Image,
+} from "react-native";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import jwt from "expo-jwt";
 
-const Stack = createNativeStackNavigator();
-const { width, height } = Dimensions.get('window');
+const jwtSecret = process.env.EXPO_PUBLIC_JWT_SECRET;
+let token = jwt.encode({}, jwtSecret, { algorithm: "HS256" });
+console.log(token);
+let ws = null;
+let messageInterval = null;
+let isConnected = false;
+
+const connectWebSocket = (setFanStats, setLedStats) => {
+  if (isConnected) {
+    console.log("WebSocket is already connected.");
+    return;
+  }
+
+  console.log("Attempting to connect to WebSocket server...");
+  const serverIP = process.env.EXPO_PUBLIC_SERVER_ADDRESS;
+
+  ws = new WebSocket(`ws://${serverIP}:8080/ws?token=${token}&agent=client`);
+
+  ws.onopen = () => {
+    ws.send("Hello, server!");
+    console.log("WebSocket Connection Established...");
+    isConnected = true;
+  };
+
+  ws.onmessage = (event) => {
+    console.log("Received message:", event.data);
+    const message = JSON.parse(event.data);
+    if (message.device === "fan") {
+      if (typeof setFanStats === "function") {
+        setFanStats({ power: message.power, rpm: message.rpm });
+      }
+    } else if (message.device === "led") {
+      if (typeof setLedStats === "function") {
+        setLedStats({ power: message.power, color: message.color });
+      }
+    }
+  };
+
+  ws.onerror = (error) => {
+    console.log(`WebSocket error: ${error.message}`);
+    ws = null;
+    isConnected = false;
+  };
+
+  ws.onclose = () => {
+    console.log("WebSocket Connection Closed...");
+    clearInterval(messageInterval);
+    isConnected = false;
+    setTimeout(connectWebSocket, 3000);
+  };
+
+  let payload = {
+    topic: ":JAVASCRIPT",
+    payload: "HYPHONIX",
+  };
+
+  messageInterval = setInterval(() => {
+    if (ws) {
+      ws.send(JSON.stringify(payload));
+      console.log("Sending message...");
+    }
+  }, 2000);
+};
+
+const { width, height } = Dimensions.get("window");
 
 const HomeScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
-      <ImageBackground 
-      source={require('./assets/images/Welcome Background.webp')} 
-      style={styles.backgroundImage}
+      <ImageBackground
+        source={require("./assets/images/Welcome Background.webp")}
+        style={styles.backgroundImage}
       >
         <TouchableOpacity
           style={styles.getstartedbutton}
-          onPress={() => navigation.navigate('Device', { name: 'Device List' })}
+          onPress={() => navigation.navigate("Device", { name: "Device List" })}
         >
           <Text style={styles.getstartedbuttonText}>Get Started!</Text>
         </TouchableOpacity>
@@ -25,55 +98,76 @@ const HomeScreen = ({ navigation }) => {
 };
 
 const DeviceScreen = ({ navigation, route }) => {
+  const [fanStats, setFanStats] = useState({ power: "OFF", rpm: "..." });
+  const [ledStats, setLedStats] = useState({ power: "OFF", color: "..." });
+
+  useEffect(() => {
+    connectWebSocket(setFanStats, setLedStats);
+    return () => {
+      if (ws) {
+        ws.close();
+      }
+      clearInterval(messageInterval);
+    };
+  }, []);
+
   return (
     <View style={styles.cardContainer}>
-      <TouchableOpacity style={[styles.DeviceListing, { height: height / 2.5 }]} onPress={() => navigation.navigate('Home', { name: 'Welcome' })}>
+      <TouchableOpacity
+        style={[styles.DeviceListing, { height: height / 2.5 }]}
+        onPress={() => navigation.navigate("Home", { name: "Welcome" })}
+      >
         <Text style={styles.DeviceListingTitle}>Fan</Text>
         <View style={styles.imageRow}>
           <View style={styles.imageView}>
             <Image
-              source={require('./assets/images/FanIcon.png')}
+              source={require("./assets/images/FanIcon.png")}
               style={styles.icon}
             />
           </View>
         </View>
-        
+
         <View style={styles.statsColumn}>
-        <View style={styles.headerRow}>
+          <View style={styles.headerRow}>
             <Text style={styles.DeviceListingText}>Power</Text>
             <Text style={styles.DeviceListingText}>RPM</Text>
           </View>
           <View style={styles.statsRow}>
-            <Text style={styles.DeviceListingText}>ON/OFF</Text>
-            <Text style={styles.DeviceListingText}>....</Text>
+            <Text style={styles.DeviceListingText}>{fanStats.power}</Text>
+            <Text style={styles.DeviceListingText}>{fanStats.rpm}</Text>
           </View>
         </View>
       </TouchableOpacity>
-      <TouchableOpacity style={[styles.DeviceListing, { height: height / 2.5 }]} onPress={() => navigation.navigate('Home', { name: 'Welcome' })}>
+      <TouchableOpacity
+        style={[styles.DeviceListing, { height: height / 2.5 }]}
+        onPress={() => navigation.navigate("Home", { name: "Welcome" })}
+      >
         <Text style={styles.DeviceListingTitle}>RGB Strip</Text>
         <View style={styles.imageRow}>
           <View style={styles.imageView}>
             <Image
-              source={require('./assets/images/LEDIcon.png')}
+              source={require("./assets/images/LEDIcon.png")}
               style={styles.icon}
             />
           </View>
         </View>
-        
+
         <View style={styles.statsColumn}>
           <View style={styles.headerRow}>
             <Text style={styles.DeviceListingText}>Power</Text>
             <Text style={styles.DeviceListingText}>Color</Text>
           </View>
           <View style={styles.statsRow}>
-            <Text style={styles.DeviceListingText}>ON/OFF</Text>
-            <Text style={styles.DeviceListingText}>....</Text>
+            <Text style={styles.DeviceListingText}>{ledStats.power}</Text>
+            <Text style={styles.DeviceListingText}>{ledStats.color}</Text>
           </View>
         </View>
       </TouchableOpacity>
     </View>
   );
 };
+
+const Stack = createNativeStackNavigator();
 
 const MyStack = () => {
   return (
@@ -82,28 +176,32 @@ const MyStack = () => {
         <Stack.Screen
           name="Home"
           component={HomeScreen}
-          options={{ title: 'Welcome',
-          headerStyle: {
-            backgroundColor: '#24577a', // Example background color
-          },
-          headerTintColor: '#fff', // Example tint color for the title and buttons
-          headerTitleStyle: {
-            fontWeight: 'bold', // Example font weight for the title
-            fontSize: 28,
-          }, }}
+          options={{
+            title: "Welcome",
+            headerStyle: {
+              backgroundColor: "#24577a", // Example background color
+            },
+            headerTintColor: "#fff", // Example tint color for the title and buttons
+            headerTitleStyle: {
+              fontWeight: "bold", // Example font weight for the title
+              fontSize: 28,
+            },
+          }}
         />
         <Stack.Screen
           name="Device"
           component={DeviceScreen}
-          options={{ title: 'Device List',
-          headerStyle: {
-            backgroundColor: '#24577a', // Example background color
-          },
-          headerTintColor: '#fff', // Example tint color for the title and buttons
-          headerTitleStyle: {
-            fontWeight: 'bold', // Example font weight for the title
-            fontSize: 28,
-          }, }}
+          options={{
+            title: "Device List",
+            headerStyle: {
+              backgroundColor: "#24577a", // Example background color
+            },
+            headerTintColor: "#fff", // Example tint color for the title and buttons
+            headerTitleStyle: {
+              fontWeight: "bold", // Example font weight for the title
+              fontSize: 28,
+            },
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>
@@ -113,50 +211,50 @@ const MyStack = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    flexDirection: 'column',
+    flexDirection: "column",
   },
   cardContainer: {
     flex: 1,
-    flexDirection: 'column',
+    flexDirection: "column",
   },
   backgroundImage: {
     flex: 1,
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   title: {
     fontSize: 70,
-    color: 'white',
-    marginTop: 100, 
+    color: "white",
+    marginTop: 100,
   },
   getstartedbutton: {
-    backgroundColor: 'blue',
+    backgroundColor: "blue",
     padding: 15,
     borderRadius: 5,
-    position: 'absolute',
+    position: "absolute",
     bottom: 80,
-    alignSelf: 'center',
+    alignSelf: "center",
   },
   getstartedbuttonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
   },
   DeviceListing: {
-    width: '100%', // Take the full width
-    justifyContent:'bottom',
-    alignItems: 'center',
-    backgroundColor: 'white',
+    width: "100%", // Take the full width
+    justifyContent: "bottom",
+    alignItems: "center",
+    backgroundColor: "white",
     marginTop: 10,
   },
   DeviceListingTitle: {
-    color: '#24577a',
+    color: "#24577a",
     fontSize: 30,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   DeviceListingText: {
-    color: '#24577a',
+    color: "#24577a",
     fontSize: 20,
-    fontWeight: 'normal',
+    fontWeight: "normal",
   },
   icon: {
     width: 150,
@@ -164,42 +262,39 @@ const styles = StyleSheet.create({
     marginTop: 25,
   },
   imageView: {
-    alignItems: 'right',
+    alignItems: "right",
   },
   statsRow: {
-    flexDirection: 'row', 
-    justifyContent: 'space-around', 
-    position: 'absolute', 
-    top:200 ,
-    right: 10, 
-    width: '100%', 
+    flexDirection: "row",
+    justifyContent: "space-around",
+    position: "absolute",
+    top: 200,
+    right: 10,
+    width: "100%",
   },
   headerRow: {
-    flexDirection: 'row', 
-    justifyContent: 'space-around', 
-    position: 'relative', 
+    flexDirection: "row",
+    justifyContent: "space-around",
+    position: "relative",
     top: 150,
-    left: -10, 
-    width: '100%', 
+    left: -10,
+    width: "100%",
   },
   statsColumn: {
-    flexDirection: 'column', 
-    justifyContent: 'space-between', 
-    position: 'relative', 
-    top: 50, 
+    flexDirection: "column",
+    justifyContent: "space-between",
+    position: "relative",
+    top: 50,
     left: 0,
-    width: '100%', 
+    width: "100%",
   },
   imageRow: {
-  flexDirection: 'row', 
-  justifyContent: 'space-around', 
-  position: 'absolute', 
-  bottom: 150, 
-  width: '100%', 
-},
- 
+    flexDirection: "row",
+    justifyContent: "space-around",
+    position: "absolute",
+    bottom: 150,
+    width: "100%",
+  },
 });
 
 export default MyStack;
-
-

@@ -10,7 +10,7 @@ import platform
 
 
 
-env_path = os.path.join(os.path.dirname(__file__), '.env')
+env_path = os.path.join(os.path.dirname(__file__), '../.env')
 
 if not os.path.exists(env_path):
     with open(env_path, 'w') as env_file:

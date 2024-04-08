@@ -11,5 +11,6 @@
 
 **/credentials.h
 
+**/node_modules
 **/.vscode/
 **/.env
