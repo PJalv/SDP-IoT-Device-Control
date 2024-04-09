@@ -3,7 +3,13 @@ from dotenv import load_dotenv
 import os
 import json
 import time
-env_path = os.path.join(os.path.dirname(__file__), '.env')
+# Get the directory path of the current Python file
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Construct the path to the .env file (one directory above the current directory)
+env_path = os.path.normpath(os.path.join(current_dir, "../.env"))
+
+print(env_path)
 
 if not os.path.exists(env_path):
     with open(env_path, 'w') as env_file:
@@ -43,7 +49,7 @@ update_values = {
 }
 
 def update_json_file():
-    file_path = "storage.json"
+    file_path = (os.path.join(os.path.dirname(__file__), 'storage.json'))
     if os.path.exists(file_path):
         try:
             with open(file_path, 'r+') as file:

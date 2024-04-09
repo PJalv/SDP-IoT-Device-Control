@@ -3,15 +3,18 @@ import random
 import json
 import socket
 import paho.mqtt.client as mqtt
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values, set_key
 import os
 import platform
 
 
 
 
-env_path = os.path.join(os.path.dirname(__file__), '../.env')
+# Get the directory path of the current Python file
+current_dir = os.path.dirname(os.path.abspath(__file__))
 
+# Construct the path to the .env file (one directory above the current directory)
+env_path = os.path.normpath(os.path.join(current_dir, "../.env"))
 if not os.path.exists(env_path):
     with open(env_path, 'w') as env_file:
         env_file.write("BROKER_NAME=\n")
@@ -81,12 +84,11 @@ def getIP():
 def saveBrokerParams(params):
     global BROKER_NAME, BROKER_ADDRESS, BROKER_PORT  # Declare them as global
 
-    with open(env_path, 'w') as env_file:
-        env_file.write(f"BROKER_NAME={params[0]}\n")
-        env_file.write(f"BROKER_ADDRESS={params[1]}\n")
-        env_file.write(f"BROKER_PORT={params[2]}\n")
-        
-    # Update the global variables
+    env_dict = dotenv_values(env_path)
+    set_key(env_path, 'BROKER_NAME', params[0])
+    set_key(env_path, 'BROKER_ADDRESS', params[1])
+    set_key(env_path, 'BROKER_PORT', str(params[2]))
+    
     BROKER_NAME = params[0]
     BROKER_ADDRESS = params[1]
     BROKER_PORT = int(params[2])
@@ -113,7 +115,7 @@ def mqtt_connect():
 if platform.system() == 'Windows':
     eel.start('html/index.html', mode='edge', block=False)
 else:
-    eel.start('html/index.html', block=False)
+    eel.start('html/index.html', host='0.0.0.0', mode='None', block=False)
 
 while True:
     eel.sleep(1.0)
