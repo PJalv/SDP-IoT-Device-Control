@@ -38,16 +38,36 @@ const connectWebSocket = (setFanStats, setLedStats) => {
   };
 
   ws.onmessage = (event) => {
-    console.log("Received message:", event.data);
+    // console.log("Received message:", event.data);
     const message = JSON.parse(event.data);
-    if (message.device === "fan") {
-      if (typeof setFanStats === "function") {
-        setFanStats({ power: message.power, rpm: message.rpm });
-      }
-    } else if (message.device === "led") {
-      if (typeof setLedStats === "function") {
-        setLedStats({ power: message.power, color: message.color });
-      }
+    console.log(message);
+    try {
+      setFanStats({
+        status: {
+          isOnline:
+            message["fan-device"].status.isOnline === 1 ? "Online" : "Offline",
+          lastHeartbeat: message["fan-device"].status.lastHeartbeat,
+        },
+        function: message["fan-device"].function,
+        power: message["fan-device"].power === 1 ? "ON" : "OFF",
+        rpm: message["fan-device"].rpm,
+      });
+      setLedStats({
+        status: {
+          isOnline:
+            message["led-device"].status.isOnline === 1 ? "Online" : "Offline",
+          lastHeartbeat: message["led-device"].status.lastHeartbeat,
+        },
+        function: message["led-device"].function,
+        power: message["led-device"].power === 1 ? "ON" : "OFF",
+        color: {
+          red: message["led-device"].color.red,
+          green: message["led-device"].color.green,
+          blue: message["led-device"].color.blue,
+        },
+      });
+    } catch (error) {
+      console.log("Error parsing message:", error);
     }
   };
 
@@ -64,17 +84,7 @@ const connectWebSocket = (setFanStats, setLedStats) => {
     setTimeout(connectWebSocket, 3000);
   };
 
-  let payload = {
-    topic: ":JAVASCRIPT",
-    payload: "HYPHONIX",
-  };
 
-  messageInterval = setInterval(() => {
-    if (ws) {
-      ws.send(JSON.stringify(payload));
-      console.log("Sending message...");
-    }
-  }, 2000);
 };
 
 const { width, height } = Dimensions.get("window");
@@ -98,8 +108,22 @@ const HomeScreen = ({ navigation }) => {
 };
 
 const DeviceScreen = ({ navigation, route }) => {
-  const [fanStats, setFanStats] = useState({ power: "OFF", rpm: "..." });
-  const [ledStats, setLedStats] = useState({ power: "OFF", color: "..." });
+  const [fanStats, setFanStats] = useState({
+    status: { isOnline: 0, lastHeartbeat: 0 },
+    function: 0,
+    power: 0,
+    rpm: 0,
+  });
+  const [ledStats, setLedStats] = useState({
+    status: { isOnline: 0, lastHeartbeat: 0 },
+    function: 0,
+    power: 0,
+    color: {
+      red: 0,
+      green: 0,
+      blue: 0,
+    },
+  });
 
   useEffect(() => {
     connectWebSocket(setFanStats, setLedStats);
@@ -159,7 +183,16 @@ const DeviceScreen = ({ navigation, route }) => {
           </View>
           <View style={styles.statsRow}>
             <Text style={styles.DeviceListingText}>{ledStats.power}</Text>
-            <Text style={styles.DeviceListingText}>{ledStats.color}</Text>
+            <View
+              style={[
+                styles.DeviceListingText,
+                {
+                  width: 40,
+                  height: 30,
+                  backgroundColor: `rgb(${ledStats.color.red}, ${ledStats.color.green}, ${ledStats.color.blue})`,
+                },
+              ]}
+            />
           </View>
         </View>
       </TouchableOpacity>
