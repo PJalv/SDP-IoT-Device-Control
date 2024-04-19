@@ -2,9 +2,13 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/gorilla/websocket"
+	"github.com/joho/godotenv"
 	"io"
 	"log"
 	"net/http"
@@ -12,10 +16,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/gorilla/websocket"
-	"github.com/joho/godotenv"
 )
 
 type Server struct {
@@ -57,17 +57,17 @@ func verifyToken(tokenString string, secretKey []byte) error {
 }
 
 var server = NewServer()
+var channelCommand = make(chan []byte)
 
-
+// var channelStatus = make(chan []byte)
+var upService string
 
 func notFoundHandler(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "404 page not found", http.StatusNotFound)
 }
 
-var ch = make(chan []byte)
-
 func main() {
-	
+
 	err := godotenv.Load("../../.env")
 	if err != nil {
 		log.Fatal("Error loading .env file")
@@ -80,33 +80,63 @@ func main() {
 
 	// Set a custom 404 handler for all unmatched routes
 	http.HandleFunc("/", notFoundHandler)
+	go statusChecker()
+	go commandSender(channelCommand)
 
-	go commandSender(ch)
-	
 	log.Println("Starting server on :8080...")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func commandHandler(w http.ResponseWriter, r *http.Request) {
-	var params map[string]string
-	err := json.NewDecoder(r.Body).Decode(&params)
-	if err != nil {
-		fmt.Println("Error decoding JSON:", err)
-		return
-	}
-	command, ok := params["command"]
-	if !ok {
-		fmt.Println("command key not found in json request")
-		return
-	}
-	// ch := make(chan []byte)
-	go openAIReq("https://api.openai.com/v1/chat/completions", command, ch)
-	w.Write([]byte("Processing Request!"))
-	fmt.Println("Received command:", command)
-}
+func statusChecker() {
+	domainList := map[string]string{"local": "https://indicator-he-apparently-universal.trycloudflare.com", "openai": "https://api.openai.com"}
+	for {
+		for _, domain := range domainList {
+			go func(domains string) {
+				log.Println("Checking domain:", domains)
+				client := &http.Client{
+					Timeout: 3 * time.Second, // Set timeout to 10 seconds
+				}
+				// Make a GET request with the custom client
+				ctx, cancel := context.WithTimeout(context.Background(), client.Timeout)
 
+				defer cancel()
+				req, err := http.NewRequestWithContext(ctx, "GET", domains, nil)
+				if err != nil {
+					fmt.Println("Error creating request:", err)
+					return
+				}
+				resp, err := client.Do(req)
+				if err != nil {
+					if ctx.Err() == context.DeadlineExceeded {
+						log.Printf("Timeout when checking domain %s", domains)
+					}
+					return
+				}
+
+				if resp.StatusCode != 421 {
+					log.Printf("Domain %s is down. Status code: %d", domains, resp.StatusCode)
+				} else {
+					log.Printf("Domain %s is up. Status code: %d", domains, resp.StatusCode)
+					for key, val := range domainList {
+						if val == domain {
+							if key != upService && upService != "local" {
+								log.Println("Changing service, new service is:", key)
+							}
+							server.mu.Lock()
+							upService = key
+							server.mu.Unlock()
+							continue
+						}
+					}
+
+				}
+			}(domain)
+			time.Sleep(7 * time.Second)
+		}
+	}
+}
 func wsHandler(w http.ResponseWriter, r *http.Request) {
 	tokenString := r.URL.Query().Get("token")
 	if tokenString == "" {
@@ -153,12 +183,10 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		fmt.Println("Received message:", string(message))
-	
+
 		broadcast(messageType, message, ws)
 	}
 }
-
-// This code talks about the broadcast function of the websocket server
 func broadcast(messageType int, b []byte, authWS *websocket.Conn) {
 	if server.conns[authWS].Agent == "client" {
 		for ws := range server.conns {
@@ -183,7 +211,6 @@ func broadcast(messageType int, b []byte, authWS *websocket.Conn) {
 		}
 	}
 }
-
 func commandSender(ch chan []byte) {
 	fmt.Println("Starting command sender")
 	time.Sleep(3 * time.Second)
@@ -216,22 +243,51 @@ func commandSender(ch chan []byte) {
 		}
 	}
 }
-
-func openAIReq(url string, command string, ch chan []byte) {
-
-	var headers = map[string]string{
-		"Authorization": "Bearer " + os.Getenv("OPENAI_APIKEY"),
-		"Content-Type":  "application/json",
+func commandHandler(w http.ResponseWriter, r *http.Request) {
+	var params map[string]string
+	err := json.NewDecoder(r.Body).Decode(&params)
+	if err != nil {
+		fmt.Println("Error decoding JSON:", err)
+		return
+	}
+	command, ok := params["command"]
+	if !ok {
+		fmt.Println("command key not found in json request")
+		return
+	}
+	// ch := make(chan []byte)
+	go postCommand(command, channelCommand)
+	w.Write([]byte("Processing Request!"))
+	fmt.Println("Received command:", command)
+}
+func postCommand(command string, ch chan []byte) {
+	service := upService
+	fmt.Println("Service:", service)
+	var headers map[string]string
+	var url string
+	switch string(service) {
+	case "openai":
+		headers = map[string]string{"Authorization": "Bearer " + os.Getenv("OPENAI_APIKEY"), "Content-Type": "application/json"}
+		url = "https://api.openai.com/v1/chat/completions"
+	default:
+		headers = map[string]string{}
+		url = "https://indicator-he-apparently-universal.trycloudflare.com/v1/chat/completions"
 	}
 	var body interface{} = map[string]interface{}{
-		"model": "gpt-3.5-turbo-1106",
-		"response_format": map[string]interface{}{
-			"type": "json_object",
-		},
+		"model": func(service string) string {
+			switch service {
+			case "local":
+				return "koboldcpp/Noromaid-v0.4-Mixtral-Instruct-8x7b.q3_k_m"
+			case "openai":
+				return "gpt-3.5-turbo"
+			default: // default is local
+				return "gpt-3.5-turbo"
+			}
+		}(service),
 		"messages": []map[string]interface{}{
 			{
 				"role":    "system",
-				"content": "You are an assistant tasked to control two iot devices: a fan, and  RGB LED STRIP.  You will be asked to perform tasks related to the operation of these devices: YOU WILL NOT ANSWER TO ANYTHING ELSE other than if the user asks for question related to the system. for example, what is XXX of YYY device?  if the input is not recognizable respond with an object of: { response: 'error' } FAN DEVICE SCHEMA: power control: if asked to turn fan on/off, you will respond with the following json object: { response: 'ok', topic: 'fan/control', payload_format: 'INT', payload: '{0 for OFF or 1 for ON}' } SPEED CONTROL: if asked to turn fan at a certain speed, have in mind the range for duty cycle is 96 to 1024, (take no request for RPM values) so find an applicable value to satisfy the customer.  response json: { response: 'ok', topic: 'fan/control, payload_format: 'INT', payload: 'number between 96 and 1024' } RGB LED STRIP: POWER CONTROL: if asked to turn the LEDs(strip, lights, whatever applicable name) respond in this format: { response: 'ok', topic: 'led/control/power', payload_format: 'INT', payload: '{0 for off, 1 for on}' } COLOR CONTROL: if asked to change the color, of LEDs(strip, lights, whatever applicable get the rgb values of the color, and respond in this format: { response: 'ok', topic: 'led/control/color', payload_format: 'JSON', payload: { red: {R value from RGB}, green: {G value from RGB}, blue: {B value from RGB} } }}",
+				"content": "You are an assistant tasked with controlling two IoT devices: a fan and an RGB LED strip. You will perform tasks related to these devices and respond only to questions related to the system. For example, if the user asks for the status of a device, you will respond accordingly. If the input is not recognizable, respond with an error object: { response: 'error' }.  Fan Device Schema: Power Control: If asked to turn the fan on or off, respond with: { response: 'ok', topic: 'fan/control', payload_format: 'INT', payload: '{0 for OFF or 1 for ON}' }.  Speed Control: If asked to set the fan speed, respond with a number between 96 and 1024 for the duty cycle: { response: 'ok', topic: 'fan/control', payload_format: 'INT', payload: 'number between 96 and 1024' }.  Function Control: If asked to set the Fan to 'breeze' mode, then response with this object : {response: 'ok', topic: 'fan/control', payload_format: 'JSON', payload: {function: 1}} LED Strip: Power Control: If asked to turn the LEDs on or off, respond with: { response: 'ok', topic: 'led/control/power', payload_format: 'INT', payload: '{0 for off, 1 for on}' }.  Color Control: If asked to change the color of the LEDs, respond with the RGB values of the color: { response: 'ok', topic: 'led/control/color', payload_format: 'JSON', payload: { red: {R value}, green: {G value}, blue: {B value} } }.  Function Control: If asked to set the strip to 'rainbow' mode, then response with this object : {response: 'ok', topic: 'fan/control', payload_format: 'JSON', payload: 1}",
 			},
 			{
 				"role":    "user",
@@ -254,6 +310,7 @@ func openAIReq(url string, command string, ch chan []byte) {
 	}
 
 	client := &http.Client{}
+	log.Println("doing request")
 	resp, err := client.Do(req)
 	if err != nil {
 		return
@@ -265,6 +322,11 @@ func openAIReq(url string, command string, ch chan []byte) {
 		return
 	}
 	fmt.Printf("response status code: %d\n", resp.StatusCode)
+	if resp.StatusCode != 200 {
+		log.Println("Request failed, falling back to OpenAI...")
+		go postCommand(command, ch)
+		return
+	}
 	var response Response
 	err = json.Unmarshal(respBody, &response)
 	if err != nil {
