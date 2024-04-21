@@ -64,11 +64,15 @@ function connectWebSocket() {
       if (message.response !== "ok") {
         console.log("Response not valid!");
       } else {
-        const payload =
+        let payload =
           typeof message.payload === "object"
-            ? message.payload.toString("utf8")
+            ? JSON.stringify(message.payload)
             : message.payload;
-        mqtt_client.publish(message.topic, payload);
+        console.log(payload);
+        mqtt_client.publish(
+          message.topic,
+          `${message.payload_format}:${payload}`
+        );
       }
     } catch (error) {
       console.log("Error parsing message:", error);
