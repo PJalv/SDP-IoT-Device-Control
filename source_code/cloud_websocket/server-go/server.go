@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -58,39 +60,66 @@ func verifyToken(tokenString string, secretKey []byte) error {
 
 var server = NewServer()
 var channelCommand = make(chan []byte)
+var addr = flag.String("addr", "pjalv.com", "http service address")
 
 // var channelStatus = make(chan []byte)
-var upService string
+// var upService = "openai"
+var localURL = "https://thisisnottheworkingURL.com"
+var upService = localURL
 
 func notFoundHandler(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "404 page not found", http.StatusNotFound)
 }
-
+func redirectToURL(w http.ResponseWriter, r *http.Request, URL string) {
+	http.Redirect(w, r, URL, http.StatusSeeOther)
+}
 func main() {
+	os.Setenv("TZ", "America/Los_Angeles")
+	time.LoadLocation("America/Los_Angeles")
 
-	err := godotenv.Load("../../.env")
-	if err != nil {
+	if err := godotenv.Load("../../.env"); err != nil {
 		log.Fatal("Error loading .env file")
-
 	}
-
+	http.HandleFunc("/linkedin", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Request to LinkedIn")
+		redirectToURL(w, r, "https://www.linkedin.com/in/jorge-suarez-ab93b2251/")
+	})
+	http.HandleFunc("/resume", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Request to resume")
+		redirectToURL(w, r, "https://docs.google.com/document/d/1ynXWoHiHe3NNCNCZin4Slt91ttA6x-v9jrYs64DE5KU/edit")
+	})
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/commands", commandHandler)
-	http.Handle("/8-queen/", http.StripPrefix("/8-queen/", http.FileServer(http.Dir("./8queens"))))
 
 	// Set a custom 404 handler for all unmatched routes
 	http.HandleFunc("/", notFoundHandler)
 	go statusChecker()
 	go commandSender(channelCommand)
+	// if err := http.ListenAndServe(":8080", nil); err != nil { log.Fatal(err) }
+	certFile := "cert.pem"
+	keyFile := "key.pem"
 
-	log.Println("Starting server on :8080...")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		log.Fatal(err)
+	// Load the TLS certificate and key
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		panic(err)
+	}
+
+	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}}
+	server := &http.Server{
+		Addr:      ":443",
+		TLSConfig: tlsConfig,
+	}
+
+	// Start the HTTPS server
+	err = server.ListenAndServeTLS("", "")
+	if err != nil {
+		panic(err)
 	}
 }
 
 func statusChecker() {
-	domainList := map[string]string{"local": "https://indicator-he-apparently-universal.trycloudflare.com", "openai": "https://api.openai.com"}
+	domainList := map[string]string{"local": localURL}
 	for {
 		for _, domain := range domainList {
 			go func(domains string) {
@@ -100,9 +129,8 @@ func statusChecker() {
 				}
 				// Make a GET request with the custom client
 				ctx, cancel := context.WithTimeout(context.Background(), client.Timeout)
-
 				defer cancel()
-				req, err := http.NewRequestWithContext(ctx, "GET", domains, nil)
+				req, err := http.NewRequestWithContext(ctx, "PATCH", domains, nil)
 				if err != nil {
 					fmt.Println("Error creating request:", err)
 					return
@@ -114,20 +142,23 @@ func statusChecker() {
 					}
 					return
 				}
-
-				if resp.StatusCode != 421 {
+				log.Println(resp.StatusCode)
+				if resp.StatusCode != 421 && resp.StatusCode != 501 {
 					log.Printf("Domain %s is down. Status code: %d", domains, resp.StatusCode)
+					server.mu.Lock()
+					// upService = "openai"
+					upService = localURL
+					server.mu.Unlock()
 				} else {
 					log.Printf("Domain %s is up. Status code: %d", domains, resp.StatusCode)
 					for key, val := range domainList {
 						if val == domain {
-							if key != upService && upService != "local" {
-								log.Println("Changing service, new service is:", key)
+							if upService != key {
+								server.mu.Lock()
+								upService = key
+								server.mu.Unlock()
+								continue
 							}
-							server.mu.Lock()
-							upService = key
-							server.mu.Unlock()
-							continue
 						}
 					}
 
@@ -137,6 +168,7 @@ func statusChecker() {
 		}
 	}
 }
+
 func wsHandler(w http.ResponseWriter, r *http.Request) {
 	tokenString := r.URL.Query().Get("token")
 	if tokenString == "" {
@@ -144,7 +176,6 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Token not provided", http.StatusBadRequest)
 		return
 	}
-
 	// Verify the token
 	if err := verifyToken(tokenString, []byte(os.Getenv("JWT_SECRET"))); err != nil {
 		fmt.Println("Token verification failed:", err)
@@ -164,7 +195,6 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-
 	fmt.Println("New incoming connection from Client:", r.RemoteAddr)
 	fmt.Printf("URL: %v\n", r.URL)
 	server.mu.Lock()
@@ -172,10 +202,12 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		Agent: agentString}
 	server.mu.Unlock()
 	defer func() {
+		if server.conns[ws].Agent == "commander" {
+			go commandSender(channelCommand)
+		}
 		delete(server.conns, ws)
 		ws.Close()
 	}()
-
 	for {
 		messageType, message, err := ws.ReadMessage()
 		if err != nil {
@@ -188,7 +220,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func broadcast(messageType int, b []byte, authWS *websocket.Conn) {
-	if server.conns[authWS].Agent == "client" {
+	if server.conns[authWS].Agent == "client" || server.conns[authWS].Agent == "commander" {
 		for ws := range server.conns {
 			if server.conns[ws].Agent == "broker" {
 				go func(ws *websocket.Conn) {
@@ -211,17 +243,17 @@ func broadcast(messageType int, b []byte, authWS *websocket.Conn) {
 		}
 	}
 }
+
 func commandSender(ch chan []byte) {
 	fmt.Println("Starting command sender")
 	time.Sleep(3 * time.Second)
-	var addr = flag.String("addr", "localhost:8080", "http service address")
 	key := []byte(os.Getenv("JWT_SECRET"))
 	t := jwt.New(jwt.SigningMethodHS256)
 	s, err := t.SignedString(key)
 	if err != nil {
 		return
 	}
-	u := url.URL{Scheme: "ws", Host: *addr, Path: "/ws", RawQuery: "token=" + s + "&agent=client"}
+	u := url.URL{Scheme: "wss", Host: *addr, Path: "/ws", RawQuery: "token=" + s + "&agent=commander"}
 	log.Printf("connecting to %s", u.String())
 
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
@@ -229,7 +261,10 @@ func commandSender(ch chan []byte) {
 		log.Fatal("dial:", err)
 		return
 	}
-	defer c.Close()
+	defer func() {
+		go commandSender(ch)
+		c.Close()
+	}()
 	for {
 		select {
 		case payload, ok := <-ch:
@@ -243,6 +278,7 @@ func commandSender(ch chan []byte) {
 		}
 	}
 }
+
 func commandHandler(w http.ResponseWriter, r *http.Request) {
 	var params map[string]string
 	err := json.NewDecoder(r.Body).Decode(&params)
@@ -260,6 +296,7 @@ func commandHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Processing Request!"))
 	fmt.Println("Received command:", command)
 }
+
 func postCommand(command string, ch chan []byte) {
 	service := upService
 	fmt.Println("Service:", service)
@@ -271,7 +308,7 @@ func postCommand(command string, ch chan []byte) {
 		url = "https://api.openai.com/v1/chat/completions"
 	default:
 		headers = map[string]string{}
-		url = "https://indicator-he-apparently-universal.trycloudflare.com/v1/chat/completions"
+		url = localURL
 	}
 	var body interface{} = map[string]interface{}{
 		"model": func(service string) string {
@@ -287,7 +324,7 @@ func postCommand(command string, ch chan []byte) {
 		"messages": []map[string]interface{}{
 			{
 				"role":    "system",
-				"content": "You are an assistant tasked with controlling two IoT devices: a fan and an RGB LED strip. You will perform tasks related to these devices and respond only to questions related to the system. For example, if the user asks for the status of a device, you will respond accordingly. If the input is not recognizable, respond with an error object: { response: 'error' }.  Fan Device Schema: Power Control: If asked to turn the fan on or off, respond with: { response: 'ok', topic: 'fan/control', payload_format: 'INT', payload: '{0 for OFF or 1 for ON}' }.  Speed Control: If asked to set the fan speed, respond with a number between 96 and 1024 for the duty cycle: { response: 'ok', topic: 'fan/control', payload_format: 'INT', payload: 'number between 96 and 1024' }.  Function Control: If asked to set the Fan to 'breeze' mode, then response with this object : {response: 'ok', topic: 'fan/control', payload_format: 'JSON', payload: {function: 1}} LED Strip: Power Control: If asked to turn the LEDs on or off, respond with: { response: 'ok', topic: 'led/control/power', payload_format: 'INT', payload: '{0 for off, 1 for on}' }.  Color Control: If asked to change the color of the LEDs, respond with the RGB values of the color: { response: 'ok', topic: 'led/control/color', payload_format: 'JSON', payload: { red: {R value}, green: {G value}, blue: {B value} } }.  Function Control: If asked to set the strip to 'rainbow' mode, then response with this object : {response: 'ok', topic: 'fan/control', payload_format: 'JSON', payload: 1}",
+				"content": "You are an assistant tasked with controlling two IoT devices: a fan and an RGB LED strip. You will perform tasks related to these devices and respond only to questions related to the system. For example, if the user asks for the status of a device, you will respond accordingly. If the strResponse is not recognizable, respond with an error object: { response: 'error' }.ALWAYS RESPOND IN JSON FORMAT, QUOTATIONS ON ALL KEYS AND STRINGS.  Fan Device Schema: Power Control: If asked to turn the fan on or off, respond with: { response: 'ok', topic: 'fan/control', payload_format: 'INT', payload: '{0 for OFF or 1 for ON}' }.  Speed Control: If asked to set the fan speed, respond with a number between 96 and 1024 for the duty cycle: { response: 'ok', topic: 'fan/control', payload_format: 'INT', payload: 'number between 96 and 1024' }.  Function Control: If asked to set the Fan to 'breeze' mode, then response with this object : {response: 'ok', topic: 'fan/control', payload_format: 'JSON', payload: {function: 1}} LED Strip: Power Control: If asked to turn the LEDs on or off, respond with: { response: 'ok', topic: 'led/control/power', payload_format: 'INT', payload: '{0 for off, 1 for on}' }.  Color Control: If asked to change the color of the LEDs, respond with the RGB values of the color: { response: 'ok', topic: 'led/control/color', payload_format: 'JSON', payload: { red: {R value}, green: {G value}, blue: {B value} } }.  Function Control: If asked to set the strip to 'rainbow' mode, then response with this object : {response: 'ok', topic: 'fan/control', payload_format: 'JSON', payload: 1}",
 			},
 			{
 				"role":    "user",
@@ -302,6 +339,7 @@ func postCommand(command string, ch chan []byte) {
 	reader := bytes.NewReader(jsonStr)
 	req, err := http.NewRequest("POST", url, reader)
 	if err != nil {
+		log.Print("Error in post request.\n")
 		return
 	}
 
@@ -313,12 +351,15 @@ func postCommand(command string, ch chan []byte) {
 	log.Println("doing request")
 	resp, err := client.Do(req)
 	if err != nil {
+		log.Print("Error in post request. Falling back to OpenAI...\n")
+		upService = "openai"
+		go postCommand(command, ch)
 		return
 	}
 	defer resp.Body.Close()
-
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
+		log.Print("Error in post request.\n")
 		return
 	}
 	fmt.Printf("response status code: %d\n", resp.StatusCode)
@@ -332,8 +373,29 @@ func postCommand(command string, ch chan []byte) {
 	if err != nil {
 		return
 	}
-	fmt.Println(response.Choices[0].Message.Content)
-	ch <- []byte(response.Choices[0].Message.Content)
+	strResponse := response.Choices[0].Message.Content
+	fmt.Println(strResponse)
+	start := strings.Index(strResponse, "{")
+	end := strings.LastIndex(strResponse, "}")
+	if start == -1 || end == -1 {
+		fmt.Println("No JSON object found")
+		return
+	}
+	// Extract the JSON object substring
+	jsonString := strResponse[start : end+1]
+	// Parse the JSON object
+	var obj interface{}
+	if err := json.Unmarshal([]byte(jsonString), &obj); err != nil {
+		fmt.Println("Error parsing JSON:", err)
+		return
+	}
+	// Convert the parsed JSON object back to a string
+	prettyJSON, err := json.MarshalIndent(obj, "", "  ")
+	if err != nil {
+		fmt.Println("Error converting JSON to string:", err)
+		return
+	}
+	ch <- []byte(prettyJSON)
 }
 
 type Response struct {
