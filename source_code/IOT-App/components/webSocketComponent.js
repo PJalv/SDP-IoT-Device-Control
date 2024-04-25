@@ -20,7 +20,6 @@ export const connectWebSocket = (setFanStats, setLedStats) => {
   const serverIP = process.env.EXPO_PUBLIC_SERVER_ADDRESS;
 
   ws = new WebSocket(`wss://${serverIP}/ws?token=${token}&agent=client`);
-
   ws.onopen = () => {
     console.log("WebSocket Connection Established...");
     isConnected = true;

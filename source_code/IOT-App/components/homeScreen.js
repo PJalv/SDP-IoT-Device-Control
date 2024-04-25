@@ -113,6 +113,10 @@ const styles = StyleSheet.create({
     bottom: 150,
     width: "100%",
   },
+  OFFLINE: {
+    backgroundColor: "rgba(0,0,0,0.4)",
+    pointerEvents: "none",
+  },
 });
 
 export default HomeScreen;

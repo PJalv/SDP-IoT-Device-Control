@@ -34,7 +34,8 @@
     "react-native-screens": "~3.29.0",
     "react-native-web": "~0.19.6",
     "react-native-websocket": "^1.0.2",
-    "reanimated-color-picker": "^3.0.3"
+    "reanimated-color-picker": "^3.0.3",
+    "rn-vertical-slider": "^4.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

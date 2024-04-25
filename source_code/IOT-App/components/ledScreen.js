@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import {
   Text,
   View,
@@ -23,6 +23,7 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 import { ws, connectWebSocket } from "./webSocketComponent";
+import { DeviceContext } from "./deviceContext";
 function hexToRgb(hex) {
   // Remove '#' if present
   hex = hex.replace("#", "");
@@ -36,10 +37,9 @@ function hexToRgb(hex) {
   return { r, g, b };
 }
 const LedScreen = () => {
-  const [speed, setSpeed] = useState(50); // Initial speed value
+  const { ledStats } = useContext(DeviceContext);
   const [selectedFunction, setSelectedFunction] = useState("Normal"); // Initial function value
   const [showModal, setShowModal] = useState(false);
-
   const handleApplySettings = () => {
     try {
       let topic = "led/control/color";
@@ -68,57 +68,83 @@ const LedScreen = () => {
     }
   };
 
-  const customSwatches = new Array(6)
-    .fill("#fff")
-    .map(() => colorKit.randomRgbColor().hex());
-
-  const selectedColor = useSharedValue(customSwatches[0]);
+  const customSwatches = new Array(6).fill("#fff").map(() =>
+    colorKit
+      .randomRgbColor({
+        r: [255, 255],
+        g: [0, 0],
+        b: [255, 255],
+      })
+      .hex()
+  );
+  let selectedColor = useSharedValue(customSwatches[0]);
+  // selectedColor.value = `rgb(${ledStats.color.red}, ${ledStats.color.green},${ledStats.color.blue})`;
   const backgroundColorStyle = useAnimatedStyle(() => ({
     backgroundColor: selectedColor.value,
   }));
 
   const onColorSelect = (color) => {
     setSelectedFunction("Normal");
-    // "worklet";
     selectedColor.value = color.hex;
-    console.log(selectedColor.value);
     const rgbColor = hexToRgb(selectedColor.value);
-    console.log({ r: rgbColor.r, g: rgbColor.g, b: rgbColor.b });
   };
+  let powerButton;
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        ledStats.status.isOnline !== "Online" ? null : styles.OFFLINE,
+      ]}
+    >
       <View style={styles.colorPickerContainer}>
         <>
-          <View style={styles.pickerContainer}>
-            <ColorPicker
-              value={selectedColor.value}
+          <ColorPicker
+            value={selectedColor.value} //
+            thumbSize={40}
+            onChange={onColorSelect}
+            //   boundedThumb
+          >
+            <HueCircular
+              containerStyle={styles.hueContainer}
+              thumbShape="circle"
               sliderThickness={90}
-              thumbSize={54}
-              onChange={onColorSelect}
-              //   boundedThumb
-            >
-              <HueCircular
-                containerStyle={styles.hueContainer}
-                thumbShape="circle"
-              ></HueCircular>
-
-              <View style={styles.previewTxtContainer}>
-                <PreviewText style={{ color: "#707070" }} colorFormat="rgb" />
-              </View>
-            </ColorPicker>
-          </View>
+            ></HueCircular>
+          </ColorPicker>
         </>
-
         {/* <Button title="Ok" onPress={() => setShowModal(false)} /> */}
       </View>
       <View style={styles.settingsContainer}>
         <View style={styles.option}>
-          <Text>Power</Text>
-          {/* Add a switch or button for power control */}
-        </View>
-        <View style={styles.option}>
-          <Text>Function</Text>
-          {/* Add a dropdown or radio buttons for function selection */}
+          <TouchableOpacity
+            onPress={() => {
+              let topic = "led/control/power";
+              let response = "ok";
+              let payload_format = "INT";
+              let payload;
+              let packet;
+              if (ledStats.power === "ON") {
+                payload = 0;
+              } else {
+                payload = 1;
+              }
+              packet = JSON.stringify({
+                response,
+                topic,
+                payload_format,
+                payload,
+              });
+              ws.send(packet);
+            }}
+            style={[
+              styles.functionButton,
+              {
+                backgroundColor: ledStats.power === "ON" ? "blue" : "grey",
+              },
+            ]}
+          >
+            <Text style={styles.buttonText}>{ledStats.power}</Text>
+          </TouchableOpacity>
+          <Text style={styles.optionText}>Function</Text>
           <TouchableOpacity
             onPress={() => {
               if (selectedFunction === "Static Rainbow") {
@@ -170,10 +196,25 @@ const LedScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 50,
+    paddingTop: 10,
+    marginBottom: -90,
   },
   colorPickerContainer: {
     flex: 1,
+    alignSelf: "center",
+    width: "95%",
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    shadowOpacity: 0.34,
+    shadowRadius: 6.27,
+
+    elevation: 10,
   },
   settingsContainer: {
     flex: 1,
@@ -196,6 +237,12 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: "white",
+    textAlign: "center",
+  },
+  optionText: {
+    marginTop: 10,
+    fontSize: 17,
+    fontWeight: "bold",
     textAlign: "center",
   },
 });
