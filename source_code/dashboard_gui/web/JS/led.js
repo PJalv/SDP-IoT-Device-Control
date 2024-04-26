@@ -45,6 +45,12 @@ async function publish(topic, message) {
 }
 let rgbArray;
 document.addEventListener("DOMContentLoaded", function () {
+  document.querySelector("#ledLightFunction").value =
+    data["led-device"]["function"] === 1
+      ? 1
+      : data["led-device"]["function"] === 2
+      ? 2
+      : 0;
   let colorPicker = document.getElementById("ledColorPicker");
   let rgbValuesElement = document.getElementById("rgbValues");
 
@@ -129,12 +135,6 @@ setInterval(async () => {
     // Example: Save the data to localStorage
     // localStorage.setItem('pageData', JSON.stringify(data));
     // document.querySelector('h1').innerText = `${data[`led-device`][`color`][`red`]}, ${data["led-device"]["color"]["green"]},${data[`led-device`][`color`][`blue`]}`;
-    document.querySelector("#ledLightFunction").value =
-      data["led-device"]["function"] === 1
-        ? 1
-        : data["led-device"]["function"] === 2
-        ? 2
-        : 0;
     document.querySelector("#powerButton").style =
       data["led-device"]["power"] == 0
         ? "btn btn-danger btn-primary"
