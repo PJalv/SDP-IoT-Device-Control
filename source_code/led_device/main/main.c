@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "driver/i2s_std.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -6,6 +7,7 @@
 #include "led_strip.h"
 #include "esp_log.h"
 #include "esp_err.h"
+#include "esp_spiffs.h"
 #include "../../../utils/mqtt.h"
 #include "../../../utils/wifi.c"
 #include "storage_nvs.h"
@@ -15,7 +17,8 @@
 #include "esp_random.h"
 
 #define DEBOUNCE_DELAY pdMS_TO_TICKS(180)
-
+#define AUDIO_BUFFER 2048
+i2s_chan_handle_t tx_handle;
 TaskHandle_t arrayProcessHandle = NULL;
 TaskHandle_t heartbeatHandle = NULL;
 TaskHandle_t currentHandle = NULL;
@@ -24,9 +27,10 @@ QueueHandle_t xPowerQueue;
 QueueHandle_t xColorQueue;
 SemaphoreHandle_t semaphorePower;
 SemaphoreHandle_t terminationSemaphore;
+SemaphoreHandle_t semaphoreAudio;
 led_strip_handle_t led_strip;
 int red = 0, green = 0, blue = 0, power = 0;
-int function = 0;
+int function;
 TickType_t currentInterrupt = 0;
 TickType_t lastInterrupt = 0;
 int timeBetweenPresses;
@@ -211,6 +215,74 @@ void static_rainbow(void *arg)
     vTaskDelete(NULL);
 }
 
+void play_wav(void *arg)
+{
+    printf("Playing wav file");
+    if (xSemaphoreTake(semaphoreAudio, 0) == pdTRUE)
+    {
+        printf("Audio semaphore taken\n");
+        FILE *fh = fopen((char *)arg, "rb");
+        printf("File opened\n");
+        if (fh == NULL)
+        {
+            ESP_LOGE("AUDIO", "Failed to open file");
+            xSemaphoreGive(semaphoreAudio); // Release semaphore if file open failed
+            vTaskDelete(NULL);              // Delete task and exit
+            return;
+        }
+
+        // skip the header...
+        fseek(fh, 44, SEEK_SET);
+
+        // create a writer buffer
+        int16_t *buf = calloc(AUDIO_BUFFER, sizeof(int16_t));
+        size_t bytes_read = 0;
+        size_t bytes_written = 0;
+
+        bytes_read = fread(buf, sizeof(int16_t), AUDIO_BUFFER, fh);
+
+        i2s_channel_enable(tx_handle);
+
+        while (bytes_read > 0)
+        {
+            // write the buffer to the i2s
+            i2s_channel_write(tx_handle, buf, bytes_read * sizeof(int16_t), &bytes_written, portMAX_DELAY);
+            bytes_read = fread(buf, sizeof(int16_t), AUDIO_BUFFER, fh);
+            ESP_LOGV("AUDIO", "Bytes read: %d", bytes_read);
+        }
+
+        i2s_channel_disable(tx_handle);
+
+        free(buf);
+        fclose(fh); // Close the file
+
+        xSemaphoreGive(semaphoreAudio);
+    }
+    vTaskDelete(NULL);
+}
+esp_err_t i2s_setup(void)
+{
+    i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);
+    ESP_ERROR_CHECK(i2s_new_channel(&chan_cfg, &tx_handle, NULL));
+
+    i2s_std_config_t std_cfg = {
+        .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(24000),
+        .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO),
+        .gpio_cfg = {
+            .mclk = I2S_GPIO_UNUSED,
+            .bclk = 26,
+            .ws = 25,
+            .dout = 22,
+            .din = I2S_GPIO_UNUSED,
+            .invert_flags = {
+                .mclk_inv = false,
+                .bclk_inv = false,
+                .ws_inv = false,
+            },
+        },
+    };
+    return i2s_channel_init_std_mode(tx_handle, &std_cfg);
+}
 void init()
 {
     nvs_flash_init();
@@ -237,6 +309,18 @@ void init()
     {
         /* There was insufficient FreeRTOS heap available for the semaphore to
         be created successfully. */
+    }
+    semaphoreAudio = xSemaphoreCreateBinary();
+
+    if (semaphoreAudio == NULL)
+    {
+        /* There was insufficient FreeRTOS heap available for the semaphore to
+        be created successfully. */
+    }
+    else
+    {
+        printf("Semaphore Active!");
+        xSemaphoreGive(semaphoreAudio);
     }
     led_strip = configure_led();
     switch (power)
@@ -271,6 +355,18 @@ void init()
         }
     default:
         break;
+    }
+    i2s_setup();
+    esp_vfs_spiffs_conf_t spiffsConfig = {
+        .base_path = "/storage",
+        .partition_label = NULL,
+        .max_files = 5,
+        .format_if_mount_failed = false};
+
+    esp_err_t ret = esp_vfs_spiffs_register(&spiffsConfig);
+    if (ret != ESP_OK)
+    {
+        ESP_LOGE("SPIFFS", "Failed to initialize SPIFFS. Error %d", ret);
     }
     setLEDInfo(power, function, red, green, blue);
 
@@ -393,10 +489,12 @@ void arrayProcess(void *arg)
                     case 1:
                         function = 1;
                         xTaskCreate(static_rainbow, "rainbow Effect", 1024, (void *)10, 8, &currentHandle);
+                        xTaskCreate(play_wav, "play wav", 4096, (void *)"/storage/output.wav", 10, &currentHandle);
                         break;
                     case 2:
                         function = 2;
                         xTaskCreate(trailing_rainbow, "trailing rainbow Effect", 1024, (void *)10, 8, &currentHandle);
+                        xTaskCreate(play_wav, "play wav", 4096, (void *)"/storage/breeze.wav", 10, &currentHandle);
                         break;
                     default:
                         break;
@@ -428,7 +526,6 @@ void arrayProcess(void *arg)
                         ESP_ERROR_CHECK(led_strip_refresh(led_strip));
                     }
                 }
-                function = 0;
                 setLEDInfo(power, function, red, green, blue);
                 publish_status();
             }

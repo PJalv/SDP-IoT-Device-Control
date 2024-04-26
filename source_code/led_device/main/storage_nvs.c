@@ -119,7 +119,7 @@ void getLEDInfo(int *power, int *function, int *red, int *green, int *blue)
     }
     else
     {
-        printf("Function value retrieved from NVS: %d\n", function);
+        // printf("Function value retrieved from NVS: %d\n", function);
     }
 
     err = nvs_get_i32(my_handle, RED_KEY, red);
