@@ -1,4 +1,5 @@
-# SDP-IoT-Device-Control
+# Iot Device Control System - Cal Poly Pomona Senior Design Project
+## by Dylan St Laurent & Jorge Luis Suarez
 
 
 ### Configuring Credentials
