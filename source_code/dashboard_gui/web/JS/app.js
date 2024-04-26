@@ -98,12 +98,9 @@ setInterval(async () => {
     // localStorage.setItem('pageData', JSON.stringify(data));
     document.querySelector("#led-power").innerText =
       data["led-device"]["power"] == 0 ? "OFF" : "ON";
-    document.querySelector(
-      "#currentColorSquare"
-    ).style.backgroundColor = `rgb(${data["led-device"]["color"]["red"]}, ${data["led-device"]["color"]["green"]}, ${data["led-device"]["color"]["blue"]})`;
+
     document.querySelector("#fan-power").innerText =
       data["fan-device"]["power"] == 0 ? "OFF" : "ON";
-    document.querySelector("#fan-rpm").innerText = data["fan-device"]["rpm"];
     document.querySelector("#fan-device").classList =
       data["fan-device"]["status"]["isOnline"] == 0
         ? "card device-card shadow gray-out"
@@ -112,5 +109,21 @@ setInterval(async () => {
       data["led-device"]["status"]["isOnline"] == 0
         ? "card device-card shadow gray-out"
         : "card device-card shadow";
+
+    document.querySelector("#fan-desc").innerHTML =
+      data["fan-device"]["function"] === 1
+        ? "Mode\n<span>Breeze</span>"
+        : `RPM\n<span>${data["fan-device"]["rpm"]}</span>`;
+    document.querySelector("#led-desc").innerHTML =
+      data["led-device"]["function"] === 0
+        ? "Color\n<div id='currentColorSquare' class='color-square mx-auto'> </div>"
+        : data["led-device"]["function"] === 1
+        ? "Mode\n<span>SR</span>"
+        : data["led-device"]["function"] === 2
+        ? "Mode\n<span>TR</span>"
+        : null;
+    document.querySelector(
+      "#currentColorSquare"
+    ).style.backgroundColor = `rgb(${data["led-device"]["color"]["red"]}, ${data["led-device"]["color"]["green"]}, ${data["led-device"]["color"]["blue"]})`;
   }
 }, 500);
