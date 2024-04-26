@@ -16,9 +16,11 @@ powerButton.addEventListener("click", async function () {
 });
 async function publish(topic, message) {
   try {
+    const data = await updateData();
+    let powValue;
     switch (topic) {
       case "led/control/power":
-        let powValue = await eel.getLEDPower()();
+        powValue = data["led-device"]["power"];
         powValue = powValue === 1 ? 0 : 1;
         console.log(powValue);
         await eel.publish_to_mqtt(topic, `INT:${powValue}`)();
