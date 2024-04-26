@@ -44,7 +44,8 @@ async function publish(topic, message) {
   }
 }
 let rgbArray;
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", async function () {
+  let data = await updateData();
   document.querySelector("#ledLightFunction").value =
     data["led-device"]["function"] === 1
       ? 1
