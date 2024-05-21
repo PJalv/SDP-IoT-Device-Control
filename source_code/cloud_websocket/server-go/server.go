@@ -80,14 +80,6 @@ func main() {
 	if err := godotenv.Load("../../.env"); err != nil {
 		log.Fatal("Error loading .env file")
 	}
-	http.HandleFunc("/linkedin", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Request to LinkedIn")
-		redirectToURL(w, r, "https://www.linkedin.com/in/jorge-suarez-ab93b2251/")
-	})
-	http.HandleFunc("/resume", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Request to resume")
-		redirectToURL(w, r, "https://docs.google.com/document/d/1ynXWoHiHe3NNCNCZin4Slt91ttA6x-v9jrYs64DE5KU/edit")
-	})
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/commands", commandHandler)
 
