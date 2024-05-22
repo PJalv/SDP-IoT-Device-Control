@@ -389,7 +389,7 @@ This project is protected under the [MIT](https://choosealicense.com/licenses/mi
   - Electrical and Computer Engineering Department, College of Engineering
   - hlin@cpp.edu
 
-[**Return**](#-overview)
+[**Return**](#overview)
 
 ---
 
