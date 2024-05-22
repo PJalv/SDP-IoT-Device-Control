@@ -37,8 +37,8 @@
         "other_text_thickness": 0.15,
         "other_text_upright": false,
         "pads": {
-          "drill": 1.6,
-          "height": 4.0,
+          "drill": 1.1,
+          "height": 2.0,
           "width": 2.0
         },
         "silk_line_width": 0.15,
@@ -48,16 +48,10 @@
         "silk_text_thickness": 0.15,
         "silk_text_upright": false,
         "zones": {
-          "min_clearance": 0.0
+          "min_clearance": 0.5
         }
       },
-      "diff_pair_dimensions": [
-        {
-          "gap": 0.0,
-          "via_gap": 0.0,
-          "width": 0.0
-        }
-      ],
+      "diff_pair_dimensions": [],
       "drc_exclusions": [],
       "meta": {
         "version": 2
@@ -178,9 +172,7 @@
           "td_width_to_size_filter_ratio": 0.9
         }
       ],
-      "track_widths": [
-        0.0
-      ],
+      "track_widths": [],
       "tuning_pattern_settings": {
         "diff_pair_defaults": {
           "corner_radius_percentage": 80,
@@ -207,12 +199,7 @@
           "spacing": 0.6
         }
       },
-      "via_dimensions": [
-        {
-          "diameter": 0.0,
-          "drill": 0.0
-        }
-      ],
+      "via_dimensions": [],
       "zones_allow_external_fillets": false
     },
     "ipc2581": {
@@ -445,7 +432,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "LED_Device.kicad_pro",
+    "filename": "FanSystem.kicad_pro",
     "version": 1
   },
   "net_settings": {
@@ -480,7 +467,7 @@
       "gencad": "",
       "idf": "",
       "netlist": "",
-      "plot": "LEDGerber/",
+      "plot": "FanGerber/",
       "pos_files": "",
       "specctra_dsn": "",
       "step": "",
@@ -589,7 +576,7 @@
   },
   "sheets": [
     [
-      "ee22eaf2-b785-45a1-ba64-b5c75124df79",
+      "ade115ce-2a02-4fb9-a3a3-1700aa9960b6",
       "Root"
     ]
   ],
