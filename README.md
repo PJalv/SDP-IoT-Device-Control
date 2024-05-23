@@ -43,7 +43,7 @@
 
 ## Overview
 ![Big Picture](https://i.imgur.com/pV2HRJF.png)
-The SDP-IoT-Device-Control project is structured to leverage a combination of hardware components and software technologies to provide a comprehensive IoT device control system. Here's an overview of the project's structure and the technologies used:
+This Senior project is structured to leverage a combination of hardware components and software technologies to provide a comprehensive IoT device control system. Here's an overview of the project's structure and the technologies used:
 
 ### Components:
 1. **ESP32 Microcontrollers**: These are responsible for device control, data collection, and communication.
